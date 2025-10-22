@@ -645,7 +645,7 @@ const DashboardAttendance: React.FC = () => {
     <div
       style={{
         padding: "16px",
-        backgroundColor: "#e5e7eb",
+        // backgroundColor: "#e5e7eb",
         minHeight: "100vh",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         width: "100%",
