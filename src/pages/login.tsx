@@ -48,7 +48,12 @@ export default function Login() {
   //   }
   // };
 
-  const onFinish = async (values: any) => {
+  interface LoginFormValues {
+    email: string;
+    password?: string;
+  }
+
+  const onFinish = async (values: LoginFormValues) => {
     setLoading(true);
     try {
       if (isForgotPassword) {
@@ -83,7 +88,7 @@ export default function Login() {
           return;
         }
       }
-    } catch (error) {
+    } catch {
       message.error(
         isForgotPassword
           ? "Failed to send OTP."
