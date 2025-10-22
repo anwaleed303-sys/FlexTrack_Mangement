@@ -1,9 +1,9 @@
 // src/pages/settings/index.tsx
 import Head from "next/head";
 import MainLayout from "../../components/Layout/MainLayout";
-import Profile from "../../components/Settings/Profile";
-import TwoFA from "../../components/Settings/TwoFA";
-import Webhooks from "../../components/Settings/Webhooks";
+// import Profile from "../../components/Settings/Profile";
+// import TwoFA from "../../components/Settings/TwoFA";
+// import Webhooks from "../../components/Settings/Webhooks";
 import APIKeys from "../../components/Settings/APIKeys";
 
 export default function Settings() {
@@ -15,10 +15,11 @@ export default function Settings() {
       </Head>
 
       <MainLayout>
-        <Profile />
+        <h1>jjj</h1>
+        {/* <Profile />
         <TwoFA />
         <Webhooks />
-        <APIKeys />
+        <APIKeys /> */}
       </MainLayout>
     </>
   );

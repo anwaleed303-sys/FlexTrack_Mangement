@@ -1,7 +1,7 @@
 // src/pages/reports/index.tsx
 import Head from "next/head";
 import MainLayout from "../../components/Layout/MainLayout";
-import ExportModal from "../../components/Reports/ExportModal";
+// import ExportModal from "../../components/Reports/ExportModal";
 
 export default function Reports() {
   return (
@@ -12,7 +12,8 @@ export default function Reports() {
       </Head>
 
       <MainLayout>
-        <ExportModal />
+        <h1>hhh</h1>
+        {/* <ExportModal /> */}
       </MainLayout>
     </>
   );
