@@ -427,6 +427,7 @@
 // };
 
 // export default AttendanceOverview;
+
 import React, { useState, useMemo } from "react";
 import { Card, Table, Select, Button, Tag, DatePicker, Row, Col } from "antd";
 import { CalendarOutlined } from "@ant-design/icons";
@@ -451,7 +452,8 @@ const DashboardAttendance: React.FC = () => {
   const [dateRange, setDateRange] = useState<
     [Dayjs | null, Dayjs | null] | null
   >([dayjs().subtract(7, "days"), dayjs()]);
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 5;
   // Mock data - Replace with API call later
   const allData: AttendanceRecord[] = [
     {
@@ -634,13 +636,6 @@ const DashboardAttendance: React.FC = () => {
     alert("CSV Export functionality - Connect to your API");
   };
 
-  const handleReset = () => {
-    setDepartment("All");
-    setStatusFilter("All");
-    setShiftFilter("All");
-    setDateRange([dayjs().subtract(7, "days"), dayjs()]);
-  };
-
   return (
     <div
       style={{
@@ -652,144 +647,99 @@ const DashboardAttendance: React.FC = () => {
         overflowX: "hidden",
       }}
     >
-      <Row gutter={[16, 16]}>
-        <Col xs={24} xl={16}>
+      {/* Filters Row */}
+      <Row gutter={[8, 8]} style={{ marginBottom: "20px" }}>
+        <Col xs={24} sm={12} md={12} lg={6}>
+          <Select
+            style={{ width: "100%" }}
+            value={department}
+            onChange={setDepartment}
+            size="large"
+          >
+            <Select.Option value="All">All Departments</Select.Option>
+            <Select.Option value="IT">IT</Select.Option>
+            <Select.Option value="HR">HR</Select.Option>
+            <Select.Option value="Sales">Sales</Select.Option>
+          </Select>
+        </Col>
+        <Col xs={12} sm={6} md={6} lg={5}>
+          <Select
+            style={{ width: "100%" }}
+            value={statusFilter}
+            onChange={setStatusFilter}
+            size="large"
+          >
+            <Select.Option value="All">All</Select.Option>
+            <Select.Option value="Present">Present</Select.Option>
+            <Select.Option value="Absent">Absent</Select.Option>
+          </Select>
+        </Col>
+        <Col xs={12} sm={6} md={6} lg={6}>
+          <Select
+            style={{ width: "100%" }}
+            value={shiftFilter}
+            onChange={setShiftFilter}
+            size="large"
+          >
+            <Select.Option value="All">All Shifts</Select.Option>
+            <Select.Option value="Morning">Morning</Select.Option>
+            <Select.Option value="Evening">Evening</Select.Option>
+          </Select>
+        </Col>
+        <Col xs={12} sm={6} md={6} lg={5}>
+          <Button
+            type="primary"
+            size="large"
+            onClick={handleExportCSV}
+            style={{
+              width: "100%",
+              backgroundColor: "#10b981",
+              borderColor: "#10b981",
+              fontWeight: 600,
+              height: "40px",
+              borderRadius: "20px",
+            }}
+          >
+            Export CSV
+          </Button>
+        </Col>
+      </Row>
+      {/* Date Picker and Summary Row */}
+      <Row gutter={[16, 16]} style={{ marginBottom: "20px" }}>
+        <Col xs={24} sm={12} md={10} lg={16}>
+          <RangePicker
+            style={{ width: "100%", marginBottom: "16px" }}
+            size="large"
+            format="MMMM D, YYYY"
+            placeholder={["Start Date", "End Date"]}
+            suffixIcon={<CalendarOutlined style={{ color: "#6b7280" }} />}
+            value={dateRange}
+            onChange={(dates) =>
+              setDateRange(dates as [Dayjs | null, Dayjs | null] | null)
+            }
+          />
+
+          {/* Table directly below DatePicker */}
           <Card
             bordered={false}
             style={{
               borderRadius: "12px",
               boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              marginTop: "8px",
             }}
             bodyStyle={{ padding: "16px" }}
           >
-            {/* Filters Row */}
-            <Row gutter={[8, 8]} style={{ marginBottom: "20px" }}>
-              <Col xs={24} sm={12} md={12} lg={6}>
-                <Select
-                  style={{ width: "100%" }}
-                  value={department}
-                  onChange={setDepartment}
-                  size="large"
-                >
-                  <Select.Option value="All">All Departments</Select.Option>
-                  <Select.Option value="IT">IT</Select.Option>
-                  <Select.Option value="HR">HR</Select.Option>
-                  <Select.Option value="Sales">Sales</Select.Option>
-                </Select>
-              </Col>
-              <Col xs={12} sm={6} md={6} lg={4}>
-                <Select
-                  style={{ width: "100%" }}
-                  value={statusFilter}
-                  onChange={setStatusFilter}
-                  size="large"
-                >
-                  <Select.Option value="All">All</Select.Option>
-                  <Select.Option value="Present">Present</Select.Option>
-                  <Select.Option value="Absent">Absent</Select.Option>
-                </Select>
-              </Col>
-              <Col xs={12} sm={6} md={6} lg={4}>
-                <Select
-                  style={{ width: "100%" }}
-                  value={shiftFilter}
-                  onChange={setShiftFilter}
-                  size="large"
-                >
-                  <Select.Option value="All">All Shifts</Select.Option>
-                  <Select.Option value="Morning">Morning</Select.Option>
-                  <Select.Option value="Evening">Evening</Select.Option>
-                </Select>
-              </Col>
-              <Col xs={12} sm={6} md={6} lg={5}>
-                <Button
-                  type="primary"
-                  size="large"
-                  onClick={handleExportCSV}
-                  style={{
-                    width: "100%",
-                    backgroundColor: "#10b981",
-                    borderColor: "#10b981",
-                    fontWeight: 600,
-                    height: "40px",
-                    borderRadius: "6px",
-                  }}
-                >
-                  Export CSV
-                </Button>
-              </Col>
-              <Col xs={12} sm={6} md={6} lg={5}>
-                <Button
-                  size="large"
-                  onClick={handleReset}
-                  style={{
-                    width: "100%",
-                    height: "40px",
-                    borderRadius: "6px",
-                  }}
-                >
-                  Reset
-                </Button>
-              </Col>
-            </Row>
-
-            {/* Date Range Picker */}
-            <div style={{ marginBottom: "16px" }}>
-              <RangePicker
-                style={{ width: "100%", maxWidth: "280px" }}
-                size="large"
-                format="MMMM D, YYYY"
-                placeholder={["Start Date", "End Date"]}
-                suffixIcon={<CalendarOutlined style={{ color: "#6b7280" }} />}
-                value={dateRange}
-                onChange={(dates) =>
-                  setDateRange(dates as [Dayjs | null, Dayjs | null] | null)
-                }
-              />
-            </div>
-
-            {/* Results Count */}
-            <div
-              style={{
-                marginBottom: "12px",
-                color: "#6b7280",
-                fontSize: "14px",
-              }}
-            >
-              Showing {filteredData.length} of {allData.length} records
-            </div>
-
-            {/* Table */}
             <div style={{ overflowX: "auto" }}>
               <Table
                 columns={columns}
                 dataSource={filteredData}
                 pagination={{
-                  current: 1,
-                  pageSize: 9,
+                  current: currentPage,
+                  pageSize: pageSize,
                   total: filteredData.length,
                   showSizeChanger: false,
                   position: ["bottomCenter"],
-                  style: { marginTop: "20px" },
-                  itemRender: (page, type, originalElement) => {
-                    if (type === "prev") {
-                      return (
-                        <span
-                          style={{ color: "#d1d5db", cursor: "not-allowed" }}
-                        >
-                          Previous
-                        </span>
-                      );
-                    }
-                    if (type === "next") {
-                      return (
-                        <span style={{ color: "#6b7280", cursor: "pointer" }}>
-                          Next
-                        </span>
-                      );
-                    }
-                    return originalElement;
-                  },
+                  onChange: (page) => setCurrentPage(page), // ✅ handle next/prev click
                 }}
                 size="middle"
                 bordered={false}
@@ -799,16 +749,24 @@ const DashboardAttendance: React.FC = () => {
                 }}
               />
             </div>
+            <div
+              style={{
+                marginBottom: "12px",
+                color: "#6b7280",
+                fontSize: "14px",
+              }}
+            >
+              Showing {filteredData.length} of {allData.length} records
+            </div>
           </Card>
         </Col>
 
-        {/* Weekly Summary - Right Side */}
-        <Col xs={24} xl={8}>
+        <Col xs={24} sm={12} md={14} lg={8}>
           <Card
             title={
               <span
                 style={{
-                  fontSize: "18px",
+                  fontSize: "16px",
                   fontWeight: 700,
                   color: "#111827",
                 }}
@@ -821,76 +779,60 @@ const DashboardAttendance: React.FC = () => {
               borderRadius: "12px",
               boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
             }}
-            bodyStyle={{ padding: "24px" }}
+            bodyStyle={{ padding: "16px" }}
           >
-            <div style={{ marginBottom: "28px" }}>
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: "#6b7280",
-                  marginBottom: "6px",
-                  fontWeight: 400,
-                }}
-              >
-                Total Present:
-              </div>
-              <div
-                style={{
-                  fontSize: "28px",
-                  fontWeight: 700,
-                  color: "#10b981",
-                  lineHeight: 1.2,
-                }}
-              >
-                {summary.totalPresent}
-              </div>
-            </div>
+            <Row gutter={[8, 8]}>
+              <Col span={24}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontSize: "14px",
+                    // color: "#111827",
+                  }}
+                >
+                  <span style={{ color: "#111827" }}>Total Present:</span>
+                  <span style={{ fontWeight: 600, color: "#6b7280" }}>
+                    {summary.totalPresent}
+                  </span>
+                </div>
+              </Col>
 
-            <div style={{ marginBottom: "28px" }}>
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: "#6b7280",
-                  marginBottom: "6px",
-                  fontWeight: 400,
-                }}
-              >
-                Total Absentees
-              </div>
-              <div
-                style={{
-                  fontSize: "28px",
-                  fontWeight: 700,
-                  color: "#ef4444",
-                  lineHeight: 1.2,
-                }}
-              >
-                {summary.totalAbsent}
-              </div>
-            </div>
+              <Col span={24}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontSize: "14px",
+                    // color: "#111827",
+                  }}
+                >
+                  <span style={{ color: "#111827" }}>Total Absentees:</span>
+                  <span style={{ fontWeight: 600, color: "#6b7280" }}>
+                    {summary.totalAbsent}
+                  </span>
+                </div>
+              </Col>
 
-            <div>
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: "#6b7280",
-                  marginBottom: "6px",
-                  fontWeight: 400,
-                }}
-              >
-                Avg. Work Hours
-              </div>
-              <div
-                style={{
-                  fontSize: "28px",
-                  fontWeight: 700,
-                  color: "#111827",
-                  lineHeight: 1.2,
-                }}
-              >
-                {summary.avgWorkHours}
-              </div>
-            </div>
+              <Col span={24}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    fontSize: "14px",
+                    // color: "#111827",
+                  }}
+                >
+                  <span style={{ color: "#111827" }}>Avg. Work Hours:</span>
+                  <span style={{ fontWeight: 600, color: "#6b7280" }}>
+                    {summary.avgWorkHours}
+                  </span>
+                </div>
+              </Col>
+            </Row>
           </Card>
         </Col>
       </Row>
