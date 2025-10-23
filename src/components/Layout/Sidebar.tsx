@@ -39,6 +39,15 @@ const Sidebar: React.FC<SidebarProps> = ({
       },
     },
     {
+      key: "overview",
+      icon: <CalendarOutlined />,
+      label: "Overview",
+      onClick: () => {
+        router.push("/overview");
+        if (isMobile) onClose();
+      },
+    },
+    {
       key: "attendance",
       icon: <ClockCircleOutlined />,
       label: "Attendance",
@@ -80,6 +89,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   const getSelectedKey = () => {
     const path = router.pathname;
     if (path.includes("/dashboard")) return ["dashboard"];
+    if (path.includes("/overview")) return ["overview"];
+
     if (path.includes("/attendance")) return ["attendance"];
     if (path.includes("/shifts")) return ["shifts"];
     if (path.includes("/reports")) return ["reports"];
