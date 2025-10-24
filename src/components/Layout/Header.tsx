@@ -23,6 +23,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobile = false }) => {
   const router = useRouter();
+  const [profileImage, setProfileImage] = useState<string>("");
   const [userData, setUserData] = useState<UserData>({
     name: "User",
     email: "",
@@ -42,6 +43,8 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobile = false }) => {
           role: user.userRole === "admin" ? "Admin" : "Employee",
           specificRole: user.specificRole || "",
         });
+        // Add this line to get profile image
+        setProfileImage(user.profileImage || "");
       } catch (error) {
         console.error("Error parsing user data:", error);
       }
@@ -204,9 +207,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobile = false }) => {
             trigger={["click"]}
           >
             <Avatar
-              icon={<UserOutlined />}
+              src={profileImage} // Add this prop
+              icon={!profileImage && <UserOutlined />} // Show icon only if no image
               style={{
-                backgroundColor: "#bfbfbf",
+                backgroundColor: profileImage ? "transparent" : "#bfbfbf",
                 cursor: "pointer",
               }}
               size={isMobile ? 36 : 40}
