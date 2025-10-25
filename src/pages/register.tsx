@@ -2613,7 +2613,7 @@ export default function Register() {
               >
                 <Text style={{ color: "#0050b3", fontSize: "13px" }}>
                   <strong>First Time Setup:</strong> You're registering as the
-                  main admin. Save your Private ID after registration!
+                  main admin. Save your Email Password after registration!
                 </Text>
               </div>
             )}
