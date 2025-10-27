@@ -98,7 +98,7 @@ export default function AttendanceDashboard() {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [showAllActivities, setShowAllActivities] = useState(false);
-
+  const [loggedInUser, setLoggedInUser] = useState<any>({});
   const [statsData, setStatsData] = useState({
     totalEmployees: 0,
     presentToday: 0,
@@ -138,6 +138,10 @@ export default function AttendanceDashboard() {
   const [adminForm] = Form.useForm();
 
   useEffect(() => {
+    // Load logged in user
+    const user = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
+    setLoggedInUser(user);
+
     loadData();
 
     // Refresh activities every 30 seconds
@@ -820,7 +824,7 @@ export default function AttendanceDashboard() {
   return (
     <div style={{ padding: "20px", background: "#f0f2f5", minHeight: "100vh" }}>
       <Row gutter={[16, 16]} style={{ marginBottom: "24px" }}>
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={24} sm={12} lg={loggedInUser.userRole === "admin" ? 8 : 6}>
           <Card
             bordered={false}
             style={{
@@ -845,7 +849,7 @@ export default function AttendanceDashboard() {
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={24} sm={12} lg={loggedInUser.userRole === "admin" ? 8 : 6}>
           <Card
             bordered={false}
             style={{
@@ -877,7 +881,7 @@ export default function AttendanceDashboard() {
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={24} sm={12} lg={loggedInUser.userRole === "admin" ? 8 : 6}>
           <Card
             bordered={false}
             style={{
@@ -908,45 +912,48 @@ export default function AttendanceDashboard() {
             </div>
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card
-            bordered={false}
-            style={{
-              borderRadius: "16px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-            }}
-          >
-            <Text
-              style={{ color: "#6b7280", fontSize: "14px", fontWeight: 500 }}
-            >
-              {isUserCheckedIn ? "Quick Check-out" : "Quick Check-in"}
-            </Text>
-            <Text
+
+        {loggedInUser.userRole === "employee" && (
+          <Col xs={24} sm={12} lg={6}>
+            <Card
+              bordered={false}
               style={{
-                display: "block",
-                color: "#9ca3af",
-                fontSize: "12px",
-                margin: "8px 0 12px 0",
+                borderRadius: "16px",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
               }}
             >
-              {isUserCheckedIn ? "End your session" : "Start your session"}
-            </Text>
-            <Button
-              type="primary"
-              size="large"
-              onClick={isUserCheckedIn ? handleCheckOut : handleCheckIn}
-              style={{
-                width: "100%",
-                backgroundColor: isUserCheckedIn ? "#ef4444" : "#10b981",
-                borderColor: isUserCheckedIn ? "#ef4444" : "#10b981",
-                borderRadius: "8px",
-                fontWeight: 600,
-              }}
-            >
-              {isUserCheckedIn ? "Check out" : "Check in"}
-            </Button>
-          </Card>
-        </Col>
+              <Text
+                style={{ color: "#6b7280", fontSize: "14px", fontWeight: 500 }}
+              >
+                {isUserCheckedIn ? "Quick Check-out" : "Quick Check-in"}
+              </Text>
+              <Text
+                style={{
+                  display: "block",
+                  color: "#9ca3af",
+                  fontSize: "12px",
+                  margin: "8px 0 12px 0",
+                }}
+              >
+                {isUserCheckedIn ? "End your session" : "Start your session"}
+              </Text>
+              <Button
+                type="primary"
+                size="large"
+                onClick={isUserCheckedIn ? handleCheckOut : handleCheckIn}
+                style={{
+                  width: "100%",
+                  backgroundColor: isUserCheckedIn ? "#ef4444" : "#10b981",
+                  borderColor: isUserCheckedIn ? "#ef4444" : "#10b981",
+                  borderRadius: "8px",
+                  fontWeight: 600,
+                }}
+              >
+                {isUserCheckedIn ? "Check out" : "Check in"}
+              </Button>
+            </Card>
+          </Col>
+        )}
       </Row>
 
       <Row gutter={[16, 16]}>
@@ -1000,9 +1007,8 @@ export default function AttendanceDashboard() {
                 title={
                   <Text
                     style={{
-                      fontSize: "16px",
+                      fontSize: "18px",
                       fontWeight: 600,
-                      color: "#111827",
                     }}
                   >
                     Productivity Breakdown
@@ -1012,57 +1018,141 @@ export default function AttendanceDashboard() {
                 style={{
                   borderRadius: "16px",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                  backgroundColor: "#ffffff",
                 }}
               >
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={productivityData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {productivityData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
                 <div
                   style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "8px",
-                    marginTop: "12px",
-                    justifyContent: "center",
+                    position: "relative",
+                    paddingTop: "20px",
+                    paddingBottom: "20px",
                   }}
                 >
-                  {productivityData.map((item, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
+                  {/* Labels positioned around the pie chart - Top Labels */}
+                  {productivityData.slice(0, 2).map((item, index) => {
+                    const totalValue = productivityData.reduce(
+                      (sum, d) => sum + d.value,
+                      0
+                    );
+                    const percentage = Math.round(
+                      (item.value / totalValue) * 100
+                    );
+
+                    return (
                       <div
+                        key={index}
                         style={{
-                          width: "12px",
-                          height: "12px",
-                          backgroundColor: item.color,
-                          borderRadius: "2px",
+                          position: "absolute",
+                          left: index === 0 ? "5%" : "auto",
+                          right: index === 1 ? "5%" : "auto",
+                          top: index === 0 ? "10px" : "10px",
+                          fontSize: "12px",
+                          color: "#64748b",
+                          fontWeight: 500,
+                          lineHeight: "1.5",
+                          zIndex: 10,
+                        }}
+                      >
+                        <div style={{ whiteSpace: "nowrap" }}>
+                          {item.name} ({item.value})
+                        </div>
+                        <div>({percentage}%)</div>
+                      </div>
+                    );
+                  })}
+
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={productivityData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={0}
+                        outerRadius={75}
+                        paddingAngle={0}
+                        dataKey="value"
+                        startAngle={90}
+                        endAngle={-270}
+                      >
+                        {productivityData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0];
+                            const totalValue = productivityData.reduce(
+                              (sum, d) => sum + d.value,
+                              0
+                            );
+                            const percentage = Math.round(
+                              (data.value / totalValue) * 100
+                            );
+
+                            return (
+                              <div
+                                style={{
+                                  backgroundColor: "#fff",
+                                  border: "1px solid #e5e7eb",
+                                  borderRadius: "8px",
+                                  padding: "12px",
+                                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                                }}
+                              >
+                                <p
+                                  style={{
+                                    margin: 0,
+                                    fontWeight: 600,
+                                    color: "#111827",
+                                    marginBottom: "4px",
+                                  }}
+                                >
+                                  {data.name}
+                                </p>
+                                <p
+                                  style={{
+                                    margin: 0,
+                                    color: "#6b7280",
+                                    fontSize: "14px",
+                                  }}
+                                >
+                                  Employees:{" "}
+                                  <span
+                                    style={{
+                                      fontWeight: 600,
+                                      color: "#111827",
+                                    }}
+                                  >
+                                    {data.value}
+                                  </span>
+                                </p>
+                                <p
+                                  style={{
+                                    margin: 0,
+                                    color: "#6b7280",
+                                    fontSize: "14px",
+                                    marginTop: "2px",
+                                  }}
+                                >
+                                  Percentage:{" "}
+                                  <span
+                                    style={{
+                                      fontWeight: 600,
+                                      color: "#111827",
+                                    }}
+                                  >
+                                    {percentage}%
+                                  </span>
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
                         }}
                       />
-                      <Text style={{ fontSize: "12px", color: "#6b7280" }}>
-                        {item.name}
-                      </Text>
-                    </div>
-                  ))}
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
               </Card>
             </Col>
@@ -1092,7 +1182,7 @@ export default function AttendanceDashboard() {
                     flexDirection: "column",
                     alignItems: "center",
                     justifyContent: "center",
-                    height: "200px",
+                    height: "240px",
                   }}
                 >
                   <Title level={1} style={{ margin: "0", color: "#111827" }}>
@@ -1113,133 +1203,41 @@ export default function AttendanceDashboard() {
             </Col>
           </Row>
 
-          <Row gutter={[16, 16]}>
-            <Col xs={24} md={8}>
-              <Card
-                bordered={false}
-                style={{
-                  borderRadius: "16px",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                }}
-              >
-                <Text
+          {loggedInUser.userRole === "admin" && (
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={8}>
+                <Card
+                  bordered={false}
                   style={{
-                    fontSize: "18px",
-                    fontWeight: 600,
-                    color: "#111827",
-                    display: "block",
-                    marginBottom: "8px",
+                    borderRadius: "16px",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                   }}
                 >
-                  Reports
-                </Text>
-                <Text
-                  style={{
-                    fontSize: "13px",
-                    color: "#6b7280",
-                    display: "block",
-                    marginBottom: "16px",
-                  }}
-                >
-                  Generate attendance reports
-                </Text>
-                <Button
-                  type="primary"
-                  onClick={() => setReportModal(true)}
-                  icon={<FileTextOutlined />}
-                  style={{
-                    width: "100%",
-                    backgroundColor: "#10b981",
-                    borderColor: "#10b981",
-                    borderRadius: "8px",
-                    fontWeight: 500,
-                  }}
-                >
-                  Generate Report
-                </Button>
-              </Card>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <Card
-                bordered={false}
-                style={{
-                  borderRadius: "16px",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: 600,
-                    color: "#111827",
-                    display: "block",
-                    marginBottom: "8px",
-                  }}
-                >
-                  Shifts
-                </Text>
-                <Text
-                  style={{
-                    fontSize: "13px",
-                    color: "#6b7280",
-                    display: "block",
-                    marginBottom: "16px",
-                  }}
-                >
-                  View shift schedules
-                </Text>
-                <Button
-                  type="default"
-                  style={{
-                    width: "100%",
-                    borderRadius: "8px",
-                    borderColor: "#d1d5db",
-                    color: "#111827",
-                    fontWeight: 500,
-                  }}
-                >
-                  View Shifts
-                </Button>
-              </Card>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <Card
-                bordered={false}
-                style={{
-                  borderRadius: "16px",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: 600,
-                    color: "#111827",
-                    display: "block",
-                    marginBottom: "8px",
-                  }}
-                >
-                  Quick Actions
-                </Text>
-                <Text
-                  style={{
-                    fontSize: "13px",
-                    color: "#6b7280",
-                    display: "block",
-                    marginBottom: "16px",
-                  }}
-                >
-                  Admin operations
-                </Text>
-                <Space direction="vertical" style={{ width: "100%" }}>
+                  <Text
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: 600,
+                      color: "#111827",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Reports
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: "13px",
+                      color: "#6b7280",
+                      display: "block",
+                      marginBottom: "16px",
+                    }}
+                  >
+                    Generate attendance reports
+                  </Text>
                   <Button
                     type="primary"
-                    onClick={() => {
-                      setCurrentAction("leave");
-                      setAdminAccessModal(true);
-                    }}
+                    onClick={() => setReportModal(true)}
+                    icon={<FileTextOutlined />}
                     style={{
                       width: "100%",
                       backgroundColor: "#10b981",
@@ -1248,44 +1246,140 @@ export default function AttendanceDashboard() {
                       fontWeight: 500,
                     }}
                   >
-                    New Leave
+                    Generate Report
                   </Button>
-                  <Space style={{ width: "100%", display: "flex", gap: "8px" }}>
+                </Card>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <Card
+                  bordered={false}
+                  style={{
+                    borderRadius: "16px",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: 600,
+                      color: "#111827",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Shifts
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: "13px",
+                      color: "#6b7280",
+                      display: "block",
+                      marginBottom: "16px",
+                    }}
+                  >
+                    View shift schedules
+                  </Text>
+                  <Button
+                    type="default"
+                    style={{
+                      width: "100%",
+                      borderRadius: "8px",
+                      borderColor: "#d1d5db",
+                      color: "#111827",
+                      fontWeight: 500,
+                    }}
+                  >
+                    View Shifts
+                  </Button>
+                </Card>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <Card
+                  bordered={false}
+                  style={{
+                    borderRadius: "16px",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: 600,
+                      color: "#111827",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Quick Actions
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: "13px",
+                      color: "#6b7280",
+                      display: "block",
+                      marginBottom: "16px",
+                    }}
+                  >
+                    Admin operations
+                  </Text>
+                  <Space direction="vertical" style={{ width: "100%" }}>
                     <Button
+                      type="primary"
                       onClick={() => {
-                        setCurrentAction("approve");
-                        setAdminAccessModal(true);
+                        setCurrentAction("leave");
+                        setLeaveModal(true);
                       }}
                       style={{
-                        flex: 1,
+                        width: "100%",
+                        backgroundColor: "#10b981",
+                        borderColor: "#10b981",
                         borderRadius: "8px",
-                        borderColor: "#d1d5db",
-                        color: "#6b7280",
                         fontWeight: 500,
                       }}
                     >
-                      Approve
+                      New Leave
                     </Button>
-                    <Button
-                      onClick={() => {
-                        setCurrentAction("export");
-                        setAdminAccessModal(true);
-                      }}
-                      style={{
-                        flex: 1,
-                        borderRadius: "8px",
-                        borderColor: "#d1d5db",
-                        color: "#6b7280",
-                        fontWeight: 500,
-                      }}
+                    <Space
+                      style={{ width: "100%", display: "flex", gap: "8px" }}
                     >
-                      Export
-                    </Button>
+                      <Button
+                        onClick={() => {
+                          setCurrentAction("approve");
+                          setApproveModal(true);
+                        }}
+                        style={{
+                          flex: 1,
+                          borderRadius: "8px",
+                          borderColor: "#d1d5db",
+                          color: "#6b7280",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setCurrentAction("export");
+                          setExportModal(true);
+                        }}
+                        style={{
+                          flex: 1,
+                          borderRadius: "8px",
+                          borderColor: "#d1d5db",
+                          color: "#6b7280",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Export
+                      </Button>
+                    </Space>
                   </Space>
-                </Space>
-              </Card>
-            </Col>
-          </Row>
+                </Card>
+              </Col>
+            </Row>
+          )}
         </Col>
 
         <Col xs={24} lg={10}>
