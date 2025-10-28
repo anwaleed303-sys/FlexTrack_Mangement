@@ -47,6 +47,13 @@ const { RangePicker } = DatePicker;
 const { TextArea } = Input;
 const { Option } = Select;
 
+declare global {
+  interface Window {
+    jspdf: {
+      jsPDF: any;
+    };
+  }
+}
 interface Employee {
   name: string;
   email: string;
@@ -64,6 +71,7 @@ interface AttendanceRecord {
   checkOut: string;
   workingTime: string;
   status: "present" | "absent";
+  workingHours?: number;
 }
 
 interface LeaveRequest {
@@ -74,8 +82,9 @@ interface LeaveRequest {
   reason: string;
   status: string;
   date: string;
+  isCompanyWide?: boolean;
+  holidayTitle?: string;
 }
-
 interface Activity {
   id: string;
   employee: string;
@@ -92,6 +101,7 @@ const COLORS = {
 
 export default function AttendanceDashboard() {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [jsPDFLib, setJsPDFLib] = useState<any>(null);
   const [attendanceRecords, setAttendanceRecords] = useState<
     AttendanceRecord[]
   >([]);
@@ -99,6 +109,9 @@ export default function AttendanceDashboard() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [loggedInUser, setLoggedInUser] = useState<any>({});
+  const [activitySearchText, setActivitySearchText] = useState("");
+  const [isPDFLoading, setIsPDFLoading] = useState(false);
+
   const [statsData, setStatsData] = useState({
     totalEmployees: 0,
     presentToday: 0,
@@ -133,6 +146,10 @@ export default function AttendanceDashboard() {
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [isUserCheckedIn, setIsUserCheckedIn] = useState(false);
   const [userCheckInTime, setUserCheckInTime] = useState<string | null>(null);
+  const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
+  const [leaveMode, setLeaveMode] = useState<"individual" | "company">(
+    "individual"
+  );
 
   const [leaveForm] = Form.useForm();
   const [adminForm] = Form.useForm();
@@ -143,7 +160,12 @@ export default function AttendanceDashboard() {
     setLoggedInUser(user);
 
     loadData();
-
+    // Calculate pending leave count
+    const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
+    const pendingCount = leaves.filter(
+      (l: LeaveRequest) => l.status === "Pending"
+    ).length;
+    setPendingLeaveCount(pendingCount);
     // Refresh activities every 30 seconds
     const activityInterval = setInterval(() => {
       const attRecords: AttendanceRecord[] = JSON.parse(
@@ -153,10 +175,178 @@ export default function AttendanceDashboard() {
         localStorage.getItem("leaveRequests") || "[]"
       );
       loadActivities(attRecords, leaves);
+      // Update pending count
+      const pendingCount = leaves.filter(
+        (l: LeaveRequest) => l.status === "Pending"
+      ).length;
+      setPendingLeaveCount(pendingCount);
     }, 30000);
 
     return () => clearInterval(activityInterval);
   }, []);
+
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src =
+      "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    script.async = true;
+    script.onload = () => {
+      // ✅ Safely load jsPDF
+      if (window.jspdf?.jsPDF) {
+        setJsPDFLib(window.jspdf.jsPDF);
+        setIsPDFLoading(false); // ✅ Set loading to false
+      }
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
+
+  // ✅ CSV Download
+  const handleDownloadCSV = () => {
+    try {
+      const today = new Date().toLocaleDateString("en-US");
+      const presentToday = attendanceRecords.filter(
+        (r) => r.date === today && r.status === "present"
+      );
+
+      if (presentToday.length === 0) {
+        message.warning("No employees present today!");
+        return;
+      }
+
+      const headers = [
+        "Name",
+        "Role",
+        "Shift",
+        "Check-In",
+        "Check-Out",
+        "Working Hours",
+      ];
+
+      const rows = presentToday.map((record) => {
+        const emp = employees.find((e) => e.name === record.name);
+        return [
+          record.name,
+          emp?.specificRole || "N/A",
+          emp?.shift || "N/A",
+          record.checkIn || "N/A",
+          record.checkOut || "N/A",
+          `${record.workingHours || 0} hrs`,
+        ];
+      });
+
+      let csvContent = headers.join(",") + "\n";
+      rows.forEach((row) => {
+        csvContent += row.join(",") + "\n";
+      });
+
+      const blob = new Blob([csvContent], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "present_employees.csv";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      message.success("CSV downloaded successfully!");
+    } catch (error) {
+      message.error("Failed to download CSV!");
+    }
+  };
+
+  // ✅ PDF Download
+  // ✅ PDF Download
+  // ✅ PDF Download
+  const handleDownloadPDF = () => {
+    if (!jsPDFLib) {
+      message.error("PDF library not loaded yet. Please wait a moment.");
+      return;
+    }
+
+    try {
+      const today = new Date().toLocaleDateString("en-US");
+      const presentToday = attendanceRecords.filter(
+        (r) => r.date === today && r.status === "present"
+      );
+
+      if (presentToday.length === 0) {
+        message.warning("No employees present today!");
+        return;
+      }
+
+      // ✅ FIX: jsPDFLib is already the constructor, just use 'new' with it
+      const doc = new jsPDFLib();
+
+      // Title Section
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("PRESENT EMPLOYEES REPORT", 105, 20, { align: "center" });
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 105, 28, {
+        align: "center",
+      });
+      doc.text(`Total Present: ${presentToday.length}`, 105, 34, {
+        align: "center",
+      });
+
+      doc.setLineWidth(0.5);
+      doc.line(15, 38, 195, 38);
+
+      let yPos = 45;
+      presentToday.forEach((record, index) => {
+        const emp = employees.find((e) => e.name === record.name);
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        const checkInTime = record.checkIn
+          ? new Date(record.checkIn).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            })
+          : "N/A";
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Employee ${index + 1}`, 15, yPos);
+        yPos += 6;
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.text(`Name: ${record.name}`, 20, yPos);
+        yPos += 5;
+        doc.text(`Role: ${emp?.specificRole || "N/A"}`, 20, yPos);
+        yPos += 5;
+        doc.text(`Shift: ${emp?.shift || "N/A"}`, 20, yPos);
+        yPos += 5;
+        doc.text(`Check-In: ${checkInTime}`, 20, yPos);
+        yPos += 5;
+        doc.text(`Check-Out: ${record.checkOut || "In Progress"}`, 20, yPos);
+        yPos += 5;
+        doc.text(`Working Time: ${record.workingTime || "0h 0m"}`, 20, yPos);
+        yPos += 8;
+
+        doc.setDrawColor(200, 200, 200);
+        doc.line(15, yPos, 195, yPos);
+        yPos += 5;
+      });
+
+      doc.save("present_employees.pdf");
+      message.success("PDF downloaded successfully!");
+    } catch (error: any) {
+      console.error("PDF Download Error:", error);
+      message.error(
+        "Failed to download PDF: " + (error?.message || "Unknown error")
+      );
+    }
+  };
 
   const loadData = () => {
     const empData: Employee[] = JSON.parse(
@@ -172,6 +362,10 @@ export default function AttendanceDashboard() {
     setEmployees(empData);
     setAttendanceRecords(attRecords);
     setLeaveRequests(leaves);
+    const pendingCount = leaves.filter(
+      (l: LeaveRequest) => l.status === "Pending"
+    ).length;
+    setPendingLeaveCount(pendingCount);
 
     // Load current user's check-in status
     // Load current user's check-in status
@@ -552,34 +746,71 @@ export default function AttendanceDashboard() {
 
   const handleLeaveSubmit = (values: any) => {
     const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
-    const newLeave: LeaveRequest = {
-      id: Date.now(),
-      name: values.employeeName,
-      dates: values.dates,
-      leaveType: values.leaveType,
-      reason: values.reason,
-      status: "Pending",
-      date: new Date().toISOString(),
-    };
-    leaves.push(newLeave);
-    localStorage.setItem("leaveRequests", JSON.stringify(leaves));
 
-    // Log admin activity
-    const adminActivities = JSON.parse(
-      localStorage.getItem("adminActivities") || "[]"
-    );
-    adminActivities.push({
-      id: `admin-grant-${newLeave.id}`,
-      employee: values.employeeName,
-      action: "granted leave by admin",
-      time: new Date().toISOString(),
-      type: "admin",
-    });
-    localStorage.setItem("adminActivities", JSON.stringify(adminActivities));
+    if (leaveMode === "company") {
+      // Grant leave to all employees
+      const companyLeaves = employees.map((emp) => ({
+        id: Date.now() + Math.random(), // Unique ID for each
+        name: emp.name,
+        dates: values.dates,
+        leaveType: values.leaveType,
+        reason: values.reason,
+        status: "Approved", // Auto-approve company-wide leaves
+        date: new Date().toISOString(),
+        isCompanyWide: true,
+        holidayTitle: values.holidayTitle,
+      }));
 
-    message.success("Leave granted successfully!");
+      leaves.push(...companyLeaves);
+      localStorage.setItem("leaveRequests", JSON.stringify(leaves));
+
+      // Log admin activity for company-wide leave
+      const adminActivities = JSON.parse(
+        localStorage.getItem("adminActivities") || "[]"
+      );
+      adminActivities.push({
+        id: `admin-company-leave-${Date.now()}`,
+        employee: "All Employees",
+        action: `granted ${values.holidayTitle} (company-wide)`,
+        time: new Date().toISOString(),
+        type: "admin",
+      });
+      localStorage.setItem("adminActivities", JSON.stringify(adminActivities));
+
+      message.success(`${values.holidayTitle} granted to all employees!`);
+    } else {
+      // Individual employee leave
+      const newLeave: LeaveRequest = {
+        id: Date.now(),
+        name: values.employeeName,
+        dates: values.dates,
+        leaveType: values.leaveType,
+        reason: values.reason,
+        status: "Pending",
+        date: new Date().toISOString(),
+      };
+      leaves.push(newLeave);
+      localStorage.setItem("leaveRequests", JSON.stringify(leaves));
+
+      // Log admin activity
+      const adminActivities = JSON.parse(
+        localStorage.getItem("adminActivities") || "[]"
+      );
+      adminActivities.push({
+        id: `admin-grant-${newLeave.id}`,
+        employee: values.employeeName,
+        action: "granted leave by admin",
+        time: new Date().toISOString(),
+        type: "admin",
+      });
+      localStorage.setItem("adminActivities", JSON.stringify(adminActivities));
+
+      message.success("Leave granted successfully!");
+    }
+
     setLeaveModal(false);
     leaveForm.resetFields();
+    setLeaveMode("individual");
     loadData();
   };
 
@@ -611,14 +842,36 @@ export default function AttendanceDashboard() {
     loadData();
   };
   const handleDeleteActivity = (activityId: string) => {
-    const adminActivities = JSON.parse(
-      localStorage.getItem("adminActivities") || "[]"
-    );
+    if (activityId.startsWith("admin-")) {
+      // Delete admin activity
+      const adminActivities = JSON.parse(
+        localStorage.getItem("adminActivities") || "[]"
+      );
+      const updated = adminActivities.filter((a: any) => a.id !== activityId);
+      localStorage.setItem("adminActivities", JSON.stringify(updated));
+      message.success("Admin activity deleted successfully!");
+    } else if (activityId.startsWith("att-")) {
+      // Delete attendance record
+      const records = JSON.parse(
+        localStorage.getItem("attendanceRecords") || "[]"
+      );
+      const recordId = parseInt(activityId.split("-")[2]);
+      const updated = records.filter(
+        (r: AttendanceRecord) => r.id !== recordId
+      );
+      localStorage.setItem("attendanceRecords", JSON.stringify(updated));
+      message.success("Attendance record deleted successfully!");
+    } else if (activityId.startsWith("leave-")) {
+      // Delete leave request
+      const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
+      const leaveId = parseInt(activityId.split("-")[1]);
+      const updated = leaves.filter((l: LeaveRequest) => l.id !== leaveId);
+      localStorage.setItem("leaveRequests", JSON.stringify(updated));
+      message.success("Leave request deleted successfully!");
+    } else {
+      message.warning("Cannot delete this activity!");
+    }
 
-    const updated = adminActivities.filter((a: any) => a.id !== activityId);
-    localStorage.setItem("adminActivities", JSON.stringify(updated));
-
-    message.success("Activity deleted successfully!");
     loadData();
   };
 
@@ -659,29 +912,107 @@ export default function AttendanceDashboard() {
   };
 
   const generatePDF = () => {
+    // Check if jsPDF is available
+    if (typeof window.jspdf === "undefined") {
+      message.error("PDF library not available. Using text format instead.");
+      // Fallback to text
+      const data =
+        selectedEmployee === "all"
+          ? attendanceRecords
+          : attendanceRecords.filter((r) => r.name === selectedEmployee);
+
+      let content = `ATTENDANCE REPORT\n===================\n\n`;
+      content += `Employee: ${selectedEmployee === "all" ? "All Employees" : selectedEmployee}\n\n`;
+      data.forEach((r) => {
+        content += `Name: ${r.name}\nDate: ${r.date}\nCheck In: ${r.checkIn ? new Date(r.checkIn).toLocaleTimeString() : "-"}\nCheck Out: ${r.checkOut || "-"}\nWorking Time: ${r.workingTime}\nStatus: ${r.status}\n\n`;
+      });
+      const blob = new Blob([content], { type: "text/plain" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `attendance_report_${selectedEmployee}.txt`;
+      link.click();
+      return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
     const data =
       selectedEmployee === "all"
         ? attendanceRecords
         : attendanceRecords.filter((r) => r.name === selectedEmployee);
 
-    let content = `ATTENDANCE REPORT\n===================\n\n`;
-    content += `Employee: ${selectedEmployee === "all" ? "All Employees" : selectedEmployee}\n\n`;
+    // Title
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("ATTENDANCE REPORT", 105, 20, { align: "center" });
 
-    data.forEach((r) => {
-      content += `Name: ${r.name}\n`;
-      content += `Date: ${r.date}\n`;
-      content += `Check In: ${r.checkIn ? new Date(r.checkIn).toLocaleTimeString() : "-"}\n`;
-      content += `Check Out: ${r.checkOut ? new Date(r.checkOut).toLocaleTimeString() : "-"}\n`;
-      content += `Working Time: ${r.workingTime}\n`;
-      content += `Status: ${r.status}\n\n`;
+    // Subtitle
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text(
+      `Employee: ${selectedEmployee === "all" ? "All Employees" : selectedEmployee}`,
+      105,
+      28,
+      { align: "center" }
+    );
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 105, 34, {
+      align: "center",
     });
 
-    const blob = new Blob([content], { type: "text/plain" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `attendance_report_${selectedEmployee}.pdf`;
-    link.click();
-    message.success("PDF downloaded!");
+    // Line
+    doc.setLineWidth(0.5);
+    doc.line(15, 38, 195, 38);
+
+    let yPos = 45;
+
+    data.forEach((r, index) => {
+      // New page if needed
+      if (yPos > 270) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Record ${index + 1}`, 15, yPos);
+
+      yPos += 6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+
+      doc.text(`Name: ${r.name}`, 20, yPos);
+      yPos += 5;
+      doc.text(`Date: ${r.date}`, 20, yPos);
+      yPos += 5;
+      doc.text(
+        `Check In: ${r.checkIn ? new Date(r.checkIn).toLocaleTimeString() : "-"}`,
+        20,
+        yPos
+      );
+      yPos += 5;
+      doc.text(`Check Out: ${r.checkOut || "In Progress"}`, 20, yPos);
+      yPos += 5;
+      doc.text(`Working Time: ${r.workingTime}`, 20, yPos);
+      yPos += 5;
+      doc.text(`Status: ${r.status.toUpperCase()}`, 20, yPos);
+      yPos += 8;
+
+      // Separator
+      doc.setDrawColor(200, 200, 200);
+      doc.line(15, yPos, 195, yPos);
+      yPos += 5;
+    });
+
+    // Footer
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Total Records: ${data.length}`, 105, yPos + 5, {
+      align: "center",
+    });
+
+    doc.save(`attendance_report_${selectedEmployee}.pdf`);
+    message.success("PDF downloaded successfully!");
   };
 
   const employeeColumns = [
@@ -875,7 +1206,7 @@ export default function AttendanceDashboard() {
                 style={{ color: "#10b981", fontSize: "16px" }}
               />
               <Text style={{ color: "#6b7280", fontSize: "13px" }}>
-                Checked in
+                Check in
               </Text>
             </div>
           </Card>
@@ -949,7 +1280,7 @@ export default function AttendanceDashboard() {
                   fontWeight: 600,
                 }}
               >
-                {isUserCheckedIn ? "Check out" : "Check in"}
+                {isUserCheckedIn ? "Check out" : "Checked in"}
               </Button>
             </Card>
           </Col>
@@ -1001,8 +1332,9 @@ export default function AttendanceDashboard() {
             </ResponsiveContainer>
           </Card>
 
+          {/* Productivity Breakdown and Work Hours Summary Row */}
           <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
-            <Col xs={24} md={12}>
+            <Col xs={24} md={loggedInUser.userRole === "admin" ? 12 : 24}>
               <Card
                 title={
                   <Text
@@ -1157,197 +1489,273 @@ export default function AttendanceDashboard() {
               </Card>
             </Col>
 
-            <Col xs={24} md={12}>
-              <Card
-                title={
-                  <Text
-                    style={{
-                      fontSize: "16px",
-                      fontWeight: 600,
-                      color: "#111827",
-                    }}
-                  >
-                    Work Hours Summary
-                  </Text>
-                }
-                bordered={false}
-                style={{
-                  borderRadius: "16px",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                }}
-              >
-                <div
+            {loggedInUser.userRole === "admin" && (
+              <Col xs={24} md={12}>
+                <Card
+                  title={
+                    <Text
+                      style={{
+                        fontSize: "16px",
+                        fontWeight: 600,
+                        color: "#111827",
+                      }}
+                    >
+                      Work Hours Summary
+                    </Text>
+                  }
+                  bordered={false}
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    height: "240px",
+                    borderRadius: "16px",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                   }}
                 >
-                  <Title level={1} style={{ margin: "0", color: "#111827" }}>
-                    {workHoursSummary.average}
-                  </Title>
-                  <Text
+                  <div
                     style={{
-                      fontSize: "13px",
-                      color: "#9ca3af",
-                      marginTop: "12px",
-                      textAlign: "center",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: "240px",
                     }}
                   >
-                    Weekly average for all employees
-                  </Text>
-                </div>
-              </Card>
-            </Col>
+                    <Title level={1} style={{ margin: "0", color: "#111827" }}>
+                      {workHoursSummary.average}
+                    </Title>
+                    <Text
+                      style={{
+                        fontSize: "13px",
+                        color: "#9ca3af",
+                        marginTop: "12px",
+                        textAlign: "center",
+                      }}
+                    >
+                      Weekly average for all employees
+                    </Text>
+                  </div>
+                </Card>
+              </Col>
+            )}
           </Row>
 
+          {/* Work Hours Summary for Employee - New Row */}
+          {loggedInUser.userRole === "employee" && (
+            <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
+              <Col xs={24}>
+                <Card
+                  title={
+                    <Text
+                      style={{
+                        fontSize: "16px",
+                        fontWeight: 600,
+                        color: "#111827",
+                      }}
+                    >
+                      Work Hours Summary
+                    </Text>
+                  }
+                  bordered={false}
+                  style={{
+                    borderRadius: "16px",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: "240px",
+                    }}
+                  >
+                    <Title level={1} style={{ margin: "0", color: "#111827" }}>
+                      {workHoursSummary.average}
+                    </Title>
+                    <Text
+                      style={{
+                        fontSize: "13px",
+                        color: "#9ca3af",
+                        marginTop: "12px",
+                        textAlign: "center",
+                      }}
+                    >
+                      Weekly average for all employees
+                    </Text>
+                  </div>
+                </Card>
+              </Col>
+            </Row>
+          )}
+
           {loggedInUser.userRole === "admin" && (
-            <Row gutter={[16, 16]}>
-              <Col xs={24} md={8}>
-                <Card
-                  bordered={false}
-                  style={{
-                    borderRadius: "16px",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                  }}
-                >
-                  <Text
+            <>
+              <Row gutter={[16, 16]}>
+                <Col xs={24} md={12}>
+                  <Card
+                    bordered={false}
                     style={{
-                      fontSize: "18px",
-                      fontWeight: 600,
-                      color: "#111827",
-                      display: "block",
-                      marginBottom: "8px",
+                      borderRadius: "16px",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                     }}
                   >
-                    Reports
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: "13px",
-                      color: "#6b7280",
-                      display: "block",
-                      marginBottom: "16px",
-                    }}
-                  >
-                    Generate attendance reports
-                  </Text>
-                  <Button
-                    type="primary"
-                    onClick={() => setReportModal(true)}
-                    icon={<FileTextOutlined />}
-                    style={{
-                      width: "100%",
-                      backgroundColor: "#10b981",
-                      borderColor: "#10b981",
-                      borderRadius: "8px",
-                      fontWeight: 500,
-                    }}
-                  >
-                    Generate Report
-                  </Button>
-                </Card>
-              </Col>
-
-              <Col xs={24} md={8}>
-                <Card
-                  bordered={false}
-                  style={{
-                    borderRadius: "16px",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: "18px",
-                      fontWeight: 600,
-                      color: "#111827",
-                      display: "block",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    Shifts
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: "13px",
-                      color: "#6b7280",
-                      display: "block",
-                      marginBottom: "16px",
-                    }}
-                  >
-                    View shift schedules
-                  </Text>
-                  <Button
-                    type="default"
-                    style={{
-                      width: "100%",
-                      borderRadius: "8px",
-                      borderColor: "#d1d5db",
-                      color: "#111827",
-                      fontWeight: 500,
-                    }}
-                  >
-                    View Shifts
-                  </Button>
-                </Card>
-              </Col>
-
-              <Col xs={24} md={8}>
-                <Card
-                  bordered={false}
-                  style={{
-                    borderRadius: "16px",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: "18px",
-                      fontWeight: 600,
-                      color: "#111827",
-                      display: "block",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    Quick Actions
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: "13px",
-                      color: "#6b7280",
-                      display: "block",
-                      marginBottom: "16px",
-                    }}
-                  >
-                    Admin operations
-                  </Text>
-                  <Space direction="vertical" style={{ width: "100%" }}>
+                    <Text
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: 600,
+                        color: "#111827",
+                        display: "block",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      Reports
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: "13px",
+                        color: "#6b7280",
+                        display: "block",
+                        marginBottom: "16px",
+                      }}
+                    >
+                      Downloaded Daily Attendance reports
+                    </Text>
                     <Button
                       type="primary"
-                      onClick={() => {
-                        setCurrentAction("leave");
-                        setLeaveModal(true);
-                      }}
+                      icon={<DownloadOutlined />}
+                      onClick={handleDownloadCSV}
                       style={{
-                        width: "100%",
                         backgroundColor: "#10b981",
                         borderColor: "#10b981",
+                      }}
+                    >
+                      CSV
+                    </Button>
+
+                    <Button
+                      icon={<FileTextOutlined />}
+                      style={{
+                        backgroundColor: "#10b981",
+                        borderColor: "#10b981",
+                        color: "white",
+                        marginLeft: 8,
+                      }}
+                      onClick={handleDownloadPDF}
+                      loading={isPDFLoading} // ✅ Show loading state
+                      disabled={isPDFLoading} // ✅ Disable while loading
+                    >
+                      PDF
+                    </Button>
+                  </Card>
+                </Col>
+
+                <Col xs={24} md={12}>
+                  <Card
+                    bordered={false}
+                    style={{
+                      borderRadius: "16px",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: 600,
+                        color: "#111827",
+                        display: "block",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      Shifts
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: "13px",
+                        color: "#6b7280",
+                        display: "block",
+                        marginBottom: "16px",
+                      }}
+                    >
+                      View shift schedules
+                    </Text>
+                    <Button
+                      type="default"
+                      style={{
+                        width: "100%",
                         borderRadius: "8px",
+                        borderColor: "#d1d5db",
+                        color: "#111827",
                         fontWeight: 500,
                       }}
                     >
-                      New Leave
+                      View Shifts
                     </Button>
-                    <Space
-                      style={{ width: "100%", display: "flex", gap: "8px" }}
+                  </Card>
+                </Col>
+              </Row>
+
+              <Row gutter={[16, 16]} style={{ marginTop: "16px" }}>
+                <Col xs={24} md={24}>
+                  <Card
+                    bordered={false}
+                    style={{
+                      borderRadius: "16px",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                      paddingBottom: "2px", // ↓ reduces bottom height
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: 600,
+                        color: "#111827",
+                        display: "block",
+                        marginBottom: "8px",
+                      }}
                     >
+                      Quick Actions
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: "13px",
+                        color: "#6b7280",
+                        display: "block",
+                        marginBottom: "16px",
+                      }}
+                    >
+                      Admin operations
+                    </Text>
+                    <Space
+                      direction="horizontal" // ← changed from vertical
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Button
+                        type="primary"
+                        onClick={() => {
+                          setCurrentAction("leave");
+                          setLeaveModal(true);
+                        }}
+                        style={{
+                          flex: 1,
+                          backgroundColor: "#10b981",
+                          borderColor: "#10b981",
+                          borderRadius: "8px",
+                          fontWeight: 500,
+                        }}
+                      >
+                        New Leave
+                      </Button>
                       <Button
                         onClick={() => {
                           setCurrentAction("approve");
                           setApproveModal(true);
+                          // Mark as viewed by admin when clicked
+                          if (loggedInUser.userRole === "admin") {
+                            setPendingLeaveCount(0);
+                          }
                         }}
                         style={{
                           flex: 1,
@@ -1355,9 +1763,34 @@ export default function AttendanceDashboard() {
                           borderColor: "#d1d5db",
                           color: "#6b7280",
                           fontWeight: 500,
+                          position: "relative", // ← Make sure this is here
                         }}
                       >
                         Approve
+                        {pendingLeaveCount > 0 &&
+                          loggedInUser.userRole === "admin" && (
+                            <span
+                              style={{
+                                position: "absolute",
+                                top: "-8px",
+                                right: "-8px",
+                                backgroundColor: "#ef4444",
+                                color: "white",
+                                borderRadius: "50%",
+                                width: "20px",
+                                height: "20px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: "12px",
+                                fontWeight: "bold",
+                                border: "2px solid white",
+                                zIndex: 10, // ← Add this to ensure it's on top
+                              }}
+                            >
+                              {pendingLeaveCount}
+                            </span>
+                          )}
                       </Button>
                       <Button
                         onClick={() => {
@@ -1375,10 +1808,10 @@ export default function AttendanceDashboard() {
                         Export
                       </Button>
                     </Space>
-                  </Space>
-                </Card>
-              </Col>
-            </Row>
+                  </Card>
+                </Col>
+              </Row>
+            </>
           )}
         </Col>
 
@@ -1543,24 +1976,51 @@ export default function AttendanceDashboard() {
         onCancel={() => {
           setLeaveModal(false);
           leaveForm.resetFields();
+          setLeaveMode("individual");
         }}
         footer={null}
         width={600}
       >
         <Form form={leaveForm} onFinish={handleLeaveSubmit} layout="vertical">
-          <Form.Item
-            name="employeeName"
-            label="Employee Name"
-            rules={[{ required: true, message: "Please select employee!" }]}
-          >
-            <Select placeholder="Select employee">
-              {employees.map((emp) => (
-                <Option key={emp.email} value={emp.name}>
-                  {emp.name}
-                </Option>
-              ))}
+          {/* Leave Mode Selection */}
+          <Form.Item label="Leave Type">
+            <Select
+              value={leaveMode}
+              onChange={(value) => setLeaveMode(value)}
+              style={{ width: "100%" }}
+            >
+              <Option value="individual">Individual Employee Leave</Option>
+              <Option value="company">Company-Wide/Government Holiday</Option>
             </Select>
           </Form.Item>
+
+          {/* Conditional Fields Based on Mode */}
+          {leaveMode === "individual" ? (
+            <Form.Item
+              name="employeeName"
+              label="Employee Name"
+              rules={[{ required: true, message: "Please select employee!" }]}
+            >
+              <Select placeholder="Select employee">
+                {employees.map((emp) => (
+                  <Option key={emp.email} value={emp.name}>
+                    {emp.name}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          ) : (
+            <Form.Item
+              name="holidayTitle"
+              label="Holiday/Leave Title"
+              rules={[
+                { required: true, message: "Please enter holiday title!" },
+              ]}
+            >
+              <Input placeholder="e.g., Independence Day, Eid Holiday" />
+            </Form.Item>
+          )}
+
           <Form.Item
             name="dates"
             label="Leave Duration"
@@ -1568,9 +2028,10 @@ export default function AttendanceDashboard() {
           >
             <RangePicker style={{ width: "100%" }} />
           </Form.Item>
+
           <Form.Item
             name="leaveType"
-            label="Leave Type"
+            label="Leave Category"
             rules={[{ required: true, message: "Please select leave type!" }]}
           >
             <Select placeholder="Select leave type">
@@ -1578,8 +2039,16 @@ export default function AttendanceDashboard() {
               <Option value="sick">Sick Leave</Option>
               <Option value="casual">Casual Leave</Option>
               <Option value="emergency">Emergency Leave</Option>
+              {leaveMode === "company" && (
+                <>
+                  <Option value="government">Government Holiday</Option>
+                  <Option value="company-event">Company Event</Option>
+                  <Option value="religious">Religious Holiday</Option>
+                </>
+              )}
             </Select>
           </Form.Item>
+
           <Form.Item
             name="reason"
             label="Description"
@@ -1587,12 +2056,14 @@ export default function AttendanceDashboard() {
           >
             <TextArea rows={4} placeholder="Enter reason for leave" />
           </Form.Item>
+
           <Form.Item>
             <Button
               htmlType="submit"
               block
               style={{
-                background: "linear-gradient(135deg, #00D4B1, #0066FF)",
+                backgroundColor: "#10b981",
+                borderColor: "#10b981",
                 color: "white",
                 border: "none",
                 fontWeight: 500,
@@ -1610,12 +2081,17 @@ export default function AttendanceDashboard() {
         onCancel={() => setApproveModal(false)}
         footer={null}
         width={1000}
+        bodyStyle={{
+          maxHeight: "600px",
+          overflowY: "auto",
+          paddingRight: "8px",
+        }}
       >
         <Table
           columns={leaveColumns}
           dataSource={leaveRequests}
           rowKey="id"
-          pagination={{ pageSize: 10 }}
+          pagination={false}
           scroll={{ x: 900 }}
         />
       </Modal>
@@ -1626,6 +2102,11 @@ export default function AttendanceDashboard() {
         onCancel={() => setExportModal(false)}
         footer={null}
         width={800}
+        bodyStyle={{
+          maxHeight: "600px",
+          overflowY: "auto",
+          paddingRight: "8px",
+        }}
       >
         <div style={{ marginBottom: "20px" }}>
           <Text strong>All Registered Employees</Text>
@@ -1709,20 +2190,65 @@ export default function AttendanceDashboard() {
           <Button
             icon={<FileTextOutlined />}
             onClick={() => {
-              let content = "EMPLOYEE DATA\n===================\n\n";
-              employees.forEach((e) => {
-                content += `Name: ${e.name}\n`;
-                content += `Email: ${e.email}\n`;
-                content += `Role: ${e.specificRole}\n`;
-                content += `Shift: ${e.shift || "N/A"}\n`;
-                content += `Weekly Hours: ${e.weeklyHours || 0} hrs\n\n`;
+              if (typeof window.jspdf === "undefined") {
+                message.error("PDF library not available");
+                return;
+              }
+
+              const { jsPDF } = window.jspdf;
+              const doc = new jsPDF();
+
+              // Title
+              doc.setFontSize(18);
+              doc.setFont("helvetica", "bold");
+              doc.text("EMPLOYEE DATA REPORT", 105, 20, { align: "center" });
+
+              doc.setFontSize(11);
+              doc.setFont("helvetica", "normal");
+              doc.text(`Generated: ${new Date().toLocaleString()}`, 105, 28, {
+                align: "center",
               });
-              const blob = new Blob([content], { type: "text/plain" });
-              const link = document.createElement("a");
-              link.href = URL.createObjectURL(blob);
-              link.download = "employees_data.pdf";
-              link.click();
-              message.success("Employee data exported!");
+              doc.text(`Total Employees: ${employees.length}`, 105, 34, {
+                align: "center",
+              });
+
+              doc.setLineWidth(0.5);
+              doc.line(15, 38, 195, 38);
+
+              let yPos = 45;
+
+              employees.forEach((e, index) => {
+                if (yPos > 270) {
+                  doc.addPage();
+                  yPos = 20;
+                }
+
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "bold");
+                doc.text(`Employee ${index + 1}`, 15, yPos);
+
+                yPos += 6;
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(9);
+
+                doc.text(`Name: ${e.name}`, 20, yPos);
+                yPos += 5;
+                doc.text(`Email: ${e.email}`, 20, yPos);
+                yPos += 5;
+                doc.text(`Role: ${e.specificRole}`, 20, yPos);
+                yPos += 5;
+                doc.text(`Shift: ${e.shift || "N/A"}`, 20, yPos);
+                yPos += 5;
+                doc.text(`Weekly Hours: ${e.weeklyHours || 0} hrs`, 20, yPos);
+                yPos += 8;
+
+                doc.setDrawColor(200, 200, 200);
+                doc.line(15, yPos, 195, yPos);
+                yPos += 5;
+              });
+
+              doc.save(`employees_data.pdf`);
+              message.success("PDF downloaded successfully!");
             }}
           >
             Download PDF
@@ -1768,49 +2294,126 @@ export default function AttendanceDashboard() {
       </Modal>
 
       <Modal
-        title="All Activities"
+        title={
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ fontSize: "16px", fontWeight: 600 }}>
+              All Activities
+            </Text>
+            <Button
+              type="text"
+              danger
+              // icon={<CloseOutlined />}
+              onClick={() => {
+                Modal.confirm({
+                  title: "Delete All Activities",
+                  content:
+                    "Are you sure you want to delete all activities? This action cannot be undone.",
+                  okText: "Clear",
+                  okType: "danger",
+                  cancelText: "Cancel",
+                  onOk: () => {
+                    // Get all activities
+                    const adminActivities = JSON.parse(
+                      localStorage.getItem("adminActivities") || "[]"
+                    );
+
+                    // Clear admin activities
+                    localStorage.setItem("adminActivities", JSON.stringify([]));
+
+                    message.success(
+                      `Deleted ${adminActivities.length} admin activities!`
+                    );
+                    loadData();
+                    setShowAllActivities(false);
+                    setActivitySearchText("");
+                  },
+                });
+              }}
+              style={{ fontSize: "14px", fontWeight: 500 }}
+            >
+              Clear
+            </Button>
+          </div>
+        }
         open={showAllActivities}
-        onCancel={() => setShowAllActivities(false)}
+        onCancel={() => {
+          setShowAllActivities(false);
+          setActivitySearchText("");
+        }}
         footer={null}
         width={700}
       >
-        <div style={{ maxHeight: "500px", overflowY: "auto" }}>
-          {activities.map((activity) => (
-            <div
-              key={activity.id}
-              style={{
-                padding: "16px",
-                backgroundColor: "#f9fafb",
-                borderRadius: "12px",
-                marginBottom: "12px",
-                position: "relative",
-              }}
-            >
+        {/* Search Bar */}
+        <div style={{ marginBottom: "16px" }}>
+          <Input
+            placeholder="Search activities by employee name or action..."
+            value={activitySearchText}
+            onChange={(e) => setActivitySearchText(e.target.value)}
+            allowClear
+            style={{
+              borderRadius: "8px",
+              padding: "8px 12px",
+            }}
+          />
+        </div>
+
+        {/* Activities List with Scroll */}
+        <div
+          style={{
+            maxHeight: "500px",
+            overflowY: "auto",
+            paddingRight: "8px",
+          }}
+        >
+          {activities
+            .filter((activity) => {
+              const searchLower = activitySearchText.toLowerCase();
+              return (
+                activity.employee.toLowerCase().includes(searchLower) ||
+                activity.action.toLowerCase().includes(searchLower)
+              );
+            })
+            .map((activity) => (
               <div
+                key={activity.id}
                 style={{
-                  position: "absolute",
-                  right: "16px",
-                  top: "16px",
-                  width: "8px",
-                  height: "8px",
-                  backgroundColor:
-                    activity.type === "checkin"
-                      ? "#10b981"
-                      : activity.type === "checkout"
-                        ? "#ef4444"
-                        : activity.action.includes("approved")
-                          ? "#10b981"
-                          : activity.action.includes("rejected")
-                            ? "#ef4444"
-                            : activity.action.includes("granted")
-                              ? "#f59e0b"
-                              : activity.type === "leave"
-                                ? "#3b82f6"
-                                : "#f59e0b",
-                  borderRadius: "50%",
+                  padding: "16px",
+                  backgroundColor: "#f9fafb",
+                  borderRadius: "12px",
+                  marginBottom: "12px",
+                  position: "relative",
                 }}
-              />
-              {activity.type === "admin" && (
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    right: "16px",
+                    top: "16px",
+                    width: "8px",
+                    height: "8px",
+                    backgroundColor:
+                      activity.type === "checkin"
+                        ? "#10b981"
+                        : activity.type === "checkout"
+                          ? "#ef4444"
+                          : activity.action.includes("approved")
+                            ? "#10b981"
+                            : activity.action.includes("rejected")
+                              ? "#ef4444"
+                              : activity.action.includes("granted")
+                                ? "#f59e0b"
+                                : activity.type === "leave"
+                                  ? "#3b82f6"
+                                  : "#f59e0b",
+                    borderRadius: "50%",
+                  }}
+                />
                 <Button
                   type="text"
                   danger
@@ -1823,26 +2426,42 @@ export default function AttendanceDashboard() {
                     top: "12px",
                   }}
                 />
-              )}
-              <Text
-                style={{
-                  display: "block",
-                  color: "#111827",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                  marginBottom: "4px",
-                  paddingRight: activity.type === "admin" ? "60px" : "24px",
-                }}
-              >
-                {activity.employee} {activity.action}
-              </Text>
-              <Text
-                style={{ color: "#6b7280", fontSize: "13px", display: "block" }}
-              >
-                {activity.time}
-              </Text>
+                <Text
+                  style={{
+                    display: "block",
+                    color: "#111827",
+                    fontSize: "14px",
+                    fontWeight: 500,
+                    marginBottom: "4px",
+                    paddingRight: activity.type === "admin" ? "60px" : "24px",
+                  }}
+                >
+                  {activity.employee} {activity.action}
+                </Text>
+                <Text
+                  style={{
+                    color: "#6b7280",
+                    fontSize: "13px",
+                    display: "block",
+                  }}
+                >
+                  {activity.time}
+                </Text>
+              </div>
+            ))}
+          {activities.filter((activity) => {
+            const searchLower = activitySearchText.toLowerCase();
+            return (
+              activity.employee.toLowerCase().includes(searchLower) ||
+              activity.action.toLowerCase().includes(searchLower)
+            );
+          }).length === 0 && (
+            <div
+              style={{ textAlign: "center", padding: "40px", color: "#9ca3af" }}
+            >
+              No activities found
             </div>
-          ))}
+          )}
         </div>
       </Modal>
     </div>
