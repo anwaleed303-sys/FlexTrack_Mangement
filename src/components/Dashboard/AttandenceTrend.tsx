@@ -142,6 +142,8 @@ export default function AttendanceDashboard() {
   const [leaveModal, setLeaveModal] = useState(false);
   const [approveModal, setApproveModal] = useState(false);
   const [exportModal, setExportModal] = useState(false);
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [searchText, setSearchText] = useState("");
   const [reportModal, setReportModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [isUserCheckedIn, setIsUserCheckedIn] = useState(false);
@@ -160,10 +162,11 @@ export default function AttendanceDashboard() {
     setLoggedInUser(user);
 
     loadData();
+
     // Calculate pending leave count
     const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
     const pendingCount = leaves.filter(
-      (l: LeaveRequest) => l.status === "Pending"
+      (l: LeaveRequest) => l.status === "Pending" && !l.isCompanyWide // 👈 ADD THIS
     ).length;
     setPendingLeaveCount(pendingCount);
     // Refresh activities every 30 seconds
@@ -177,7 +180,7 @@ export default function AttendanceDashboard() {
       loadActivities(attRecords, leaves);
       // Update pending count
       const pendingCount = leaves.filter(
-        (l: LeaveRequest) => l.status === "Pending"
+        (l: LeaveRequest) => l.status === "Pending" && !l.isCompanyWide // 👈 ADD THIS
       ).length;
       setPendingLeaveCount(pendingCount);
     }, 30000);
@@ -394,6 +397,35 @@ export default function AttendanceDashboard() {
     calculateLeaveStats(leaves);
   };
 
+  const sendNotificationToEmployee = (
+    employeeName: string,
+    type: "leave_status" | "company_announcement" | "company_leave",
+    title: string,
+    message: string,
+    leaveId?: number,
+    announcementId?: string // 👈 ADD THIS PARAMETER
+  ) => {
+    const employeeNotifications: any[] = JSON.parse(
+      localStorage.getItem(`notifications_${employeeName}`) || "[]"
+    );
+
+    const newNotification = {
+      id: `notif_${Date.now()}_${Math.random()}`,
+      type,
+      title,
+      message,
+      date: new Date().toISOString(),
+      read: false,
+      leaveId,
+      announcementId, // 👈 ADD THIS
+    };
+
+    employeeNotifications.unshift(newNotification);
+    localStorage.setItem(
+      `notifications_${employeeName}`,
+      JSON.stringify(employeeNotifications)
+    );
+  };
   const calculateStats = (
     empData: Employee[],
     attRecords: AttendanceRecord[]
@@ -748,14 +780,17 @@ export default function AttendanceDashboard() {
     const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
 
     if (leaveMode === "company") {
-      // Grant leave to all employees
+      // ✅ FIX: Declare announcementId FIRST
+      const announcementId = `announce_${Date.now()}`;
+
+      // Company-wide leave
       const companyLeaves = employees.map((emp) => ({
-        id: Date.now() + Math.random(), // Unique ID for each
+        id: Date.now() + Math.random(),
         name: emp.name,
         dates: values.dates,
         leaveType: values.leaveType,
         reason: values.reason,
-        status: "Approved", // Auto-approve company-wide leaves
+        status: "Approved",
         date: new Date().toISOString(),
         isCompanyWide: true,
         holidayTitle: values.holidayTitle,
@@ -764,7 +799,35 @@ export default function AttendanceDashboard() {
       leaves.push(...companyLeaves);
       localStorage.setItem("leaveRequests", JSON.stringify(leaves));
 
-      // Log admin activity for company-wide leave
+      // Save announcement BEFORE sending notifications
+      const announcements = JSON.parse(
+        localStorage.getItem("companyAnnouncements") || "[]"
+      );
+      announcements.unshift({
+        id: announcementId,
+        title: values.holidayTitle,
+        message: values.reason,
+        date: new Date().toISOString(),
+        type: "holiday",
+      });
+      localStorage.setItem(
+        "companyAnnouncements",
+        JSON.stringify(announcements)
+      );
+
+      // Send notification to ALL employees
+      employees.forEach((emp) => {
+        sendNotificationToEmployee(
+          emp.name,
+          "company_leave",
+          `Company Holiday: ${values.holidayTitle}`,
+          `You have been granted ${values.holidayTitle}. ${values.reason}`,
+          companyLeaves[0].id,
+          announcementId // ✅ Now it's properly defined
+        );
+      });
+
+      // Log admin activity
       const adminActivities = JSON.parse(
         localStorage.getItem("adminActivities") || "[]"
       );
@@ -823,8 +886,23 @@ export default function AttendanceDashboard() {
     );
     localStorage.setItem("leaveRequests", JSON.stringify(updated));
 
-    // Log admin activity
+    // Send notification to employee
     if (targetLeave) {
+      const statusEmoji = status === "Approved" ? "✅" : "❌";
+      const statusMsg =
+        status === "Approved"
+          ? "Your leave request has been approved!"
+          : "Your leave request has been rejected.";
+
+      sendNotificationToEmployee(
+        targetLeave.name,
+        "leave_status",
+        `${statusEmoji} Leave ${status}`,
+        statusMsg,
+        leaveId
+      );
+
+      // Log admin activity
       const adminActivities = JSON.parse(
         localStorage.getItem("adminActivities") || "[]"
       );
@@ -1151,7 +1229,6 @@ export default function AttendanceDashboard() {
       ),
     },
   ];
-
   return (
     <div style={{ padding: "20px", background: "#f0f2f5", minHeight: "100vh" }}>
       <Row gutter={[16, 16]} style={{ marginBottom: "24px" }}>
@@ -1639,9 +1716,126 @@ export default function AttendanceDashboard() {
                         color: "white",
                         marginLeft: 8,
                       }}
-                      onClick={handleDownloadPDF}
-                      loading={isPDFLoading} // ✅ Show loading state
-                      disabled={isPDFLoading} // ✅ Disable while loading
+                      onClick={() => {
+                        // ✅ Same approach as Export card - direct window.jspdf access
+                        if (typeof window.jspdf === "undefined") {
+                          message.error(
+                            "PDF library not loaded yet. Please wait a moment."
+                          );
+                          return;
+                        }
+
+                        try {
+                          const today = new Date().toLocaleDateString("en-US");
+                          const presentToday = attendanceRecords.filter(
+                            (r) => r.date === today && r.status === "present"
+                          );
+
+                          if (presentToday.length === 0) {
+                            message.warning("No employees present today!");
+                            return;
+                          }
+
+                          const { jsPDF } = window.jspdf;
+                          const doc = new jsPDF();
+
+                          // Title Section
+                          doc.setFontSize(18);
+                          doc.setFont("helvetica", "bold");
+                          doc.text("PRESENT EMPLOYEES REPORT", 105, 20, {
+                            align: "center",
+                          });
+
+                          doc.setFontSize(11);
+                          doc.setFont("helvetica", "normal");
+                          doc.text(
+                            `Generated: ${new Date().toLocaleString()}`,
+                            105,
+                            28,
+                            {
+                              align: "center",
+                            }
+                          );
+                          doc.text(
+                            `Total Present: ${presentToday.length}`,
+                            105,
+                            34,
+                            {
+                              align: "center",
+                            }
+                          );
+
+                          doc.setLineWidth(0.5);
+                          doc.line(15, 38, 195, 38);
+
+                          let yPos = 45;
+                          presentToday.forEach((record, index) => {
+                            const emp = employees.find(
+                              (e) => e.name === record.name
+                            );
+                            if (yPos > 270) {
+                              doc.addPage();
+                              yPos = 20;
+                            }
+
+                            const checkInTime = record.checkIn
+                              ? new Date(record.checkIn).toLocaleTimeString(
+                                  "en-US",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  }
+                                )
+                              : "N/A";
+
+                            doc.setFontSize(10);
+                            doc.setFont("helvetica", "bold");
+                            doc.text(`Employee ${index + 1}`, 15, yPos);
+                            yPos += 6;
+
+                            doc.setFont("helvetica", "normal");
+                            doc.setFontSize(9);
+                            doc.text(`Name: ${record.name}`, 20, yPos);
+                            yPos += 5;
+                            doc.text(
+                              `Role: ${emp?.specificRole || "N/A"}`,
+                              20,
+                              yPos
+                            );
+                            yPos += 5;
+                            doc.text(`Shift: ${emp?.shift || "N/A"}`, 20, yPos);
+                            yPos += 5;
+                            doc.text(`Check-In: ${checkInTime}`, 20, yPos);
+                            yPos += 5;
+                            doc.text(
+                              `Check-Out: ${record.checkOut || "In Progress"}`,
+                              20,
+                              yPos
+                            );
+                            yPos += 5;
+                            doc.text(
+                              `Working Time: ${record.workingTime || "0h 0m"}`,
+                              20,
+                              yPos
+                            );
+                            yPos += 8;
+
+                            doc.setDrawColor(200, 200, 200);
+                            doc.line(15, yPos, 195, yPos);
+                            yPos += 5;
+                          });
+
+                          doc.save("present_employees.pdf");
+                          message.success("PDF downloaded successfully!");
+                        } catch (error: any) {
+                          console.error("PDF Download Error:", error);
+                          message.error(
+                            "Failed to download PDF: " +
+                              (error?.message || "Unknown error")
+                          );
+                        }
+                      }}
                     >
                       PDF
                     </Button>
@@ -2089,7 +2283,7 @@ export default function AttendanceDashboard() {
       >
         <Table
           columns={leaveColumns}
-          dataSource={leaveRequests}
+          dataSource={leaveRequests.filter((leave) => !leave.isCompanyWide)}
           rowKey="id"
           pagination={false}
           scroll={{ x: 900 }}
@@ -2099,7 +2293,11 @@ export default function AttendanceDashboard() {
       <Modal
         title="Export Employee Data"
         open={exportModal}
-        onCancel={() => setExportModal(false)}
+        onCancel={() => {
+          setExportModal(false);
+          setSelectedEmployees([]); // Reset selection when closing
+          setSearchText(""); // Reset search
+        }}
         footer={null}
         width={800}
         bodyStyle={{
@@ -2110,6 +2308,51 @@ export default function AttendanceDashboard() {
       >
         <div style={{ marginBottom: "20px" }}>
           <Text strong>All Registered Employees</Text>
+
+          {/* Search Bar with Tags */}
+          <div style={{ marginTop: "12px", marginBottom: "16px" }}>
+            <Select
+              mode="multiple"
+              placeholder="Search and select employees by name, email, or role..."
+              value={selectedEmployees}
+              onChange={(values) => setSelectedEmployees(values)}
+              onSearch={(value) => setSearchText(value)}
+              searchValue={searchText}
+              style={{ width: "100%" }}
+              filterOption={(input, option) => {
+                const employee = employees.find(
+                  (e) => e.email === option?.value
+                );
+                if (!employee) return false;
+                const searchLower = input.toLowerCase();
+                return (
+                  employee.name.toLowerCase().includes(searchLower) ||
+                  employee.email.toLowerCase().includes(searchLower) ||
+                  employee.specificRole.toLowerCase().includes(searchLower)
+                );
+              }}
+              tagRender={(props) => {
+                const { label, closable, onClose } = props;
+                return (
+                  <Tag
+                    color="#10b981"
+                    closable={closable}
+                    onClose={onClose}
+                    style={{ marginRight: 3, marginBottom: 3 }}
+                  >
+                    {label}
+                  </Tag>
+                );
+              }}
+            >
+              {employees.map((emp) => (
+                <Option key={emp.email} value={emp.email}>
+                  {emp.name} - {emp.email}
+                </Option>
+              ))}
+            </Select>
+          </div>
+
           <Table
             columns={[
               {
@@ -2149,7 +2392,19 @@ export default function AttendanceDashboard() {
             ]}
             dataSource={employees}
             rowKey="email"
-            pagination={{ pageSize: 10 }}
+            rowSelection={{
+              selectedRowKeys: selectedEmployees,
+              onChange: (selectedRowKeys: React.Key[]) => {
+                setSelectedEmployees(selectedRowKeys as string[]);
+              },
+              type: "checkbox",
+            }}
+            pagination={{
+              pageSize: 5,
+              showSizeChanger: false,
+              showTotal: (total, range) =>
+                `${range[0]}-${range[1]} of ${total} employees${selectedEmployees.length > 0 ? ` (${selectedEmployees.length} selected)` : ""}`,
+            }}
             scroll={{ x: 700 }}
           />
         </div>
@@ -2158,6 +2413,19 @@ export default function AttendanceDashboard() {
             type="primary"
             icon={<DownloadOutlined />}
             onClick={() => {
+              // Filter employees based on selection
+              const filteredEmployees =
+                selectedEmployees.length > 0
+                  ? employees.filter((emp) =>
+                      selectedEmployees.includes(emp.email)
+                    )
+                  : employees;
+
+              if (filteredEmployees.length === 0) {
+                message.warning("No employees selected to export!");
+                return;
+              }
+
               const headers = [
                 "Name",
                 "Email",
@@ -2165,7 +2433,7 @@ export default function AttendanceDashboard() {
                 "Shift",
                 "Weekly Hours",
               ];
-              const rows = employees.map((e) => [
+              const rows = filteredEmployees.map((e) => [
                 e.name,
                 e.email,
                 e.specificRole,
@@ -2179,9 +2447,11 @@ export default function AttendanceDashboard() {
               const blob = new Blob([csvContent], { type: "text/csv" });
               const link = document.createElement("a");
               link.href = URL.createObjectURL(blob);
-              link.download = "employees_data.csv";
+              link.download = `employees_data_${selectedEmployees.length > 0 ? "selected" : "all"}.csv`;
               link.click();
-              message.success("Employee data exported!");
+              message.success(
+                `CSV downloaded! (${filteredEmployees.length} employees)`
+              );
             }}
             style={{ backgroundColor: "#10b981", borderColor: "#10b981" }}
           >
@@ -2192,6 +2462,19 @@ export default function AttendanceDashboard() {
             onClick={() => {
               if (typeof window.jspdf === "undefined") {
                 message.error("PDF library not available");
+                return;
+              }
+
+              // Filter employees based on selection
+              const filteredEmployees =
+                selectedEmployees.length > 0
+                  ? employees.filter((emp) =>
+                      selectedEmployees.includes(emp.email)
+                    )
+                  : employees;
+
+              if (filteredEmployees.length === 0) {
+                message.warning("No employees selected to export!");
                 return;
               }
 
@@ -2208,19 +2491,35 @@ export default function AttendanceDashboard() {
               doc.text(`Generated: ${new Date().toLocaleString()}`, 105, 28, {
                 align: "center",
               });
-              doc.text(`Total Employees: ${employees.length}`, 105, 34, {
-                align: "center",
-              });
+              doc.text(
+                `Total Employees: ${filteredEmployees.length}`,
+                105,
+                34,
+                {
+                  align: "center",
+                }
+              );
 
               doc.setLineWidth(0.5);
               doc.line(15, 38, 195, 38);
 
               let yPos = 45;
+              let employeesOnPage = 0;
+              const maxEmployeesPerPage = 5;
 
-              employees.forEach((e, index) => {
-                if (yPos > 270) {
+              filteredEmployees.forEach((e, index) => {
+                // Add new page if 5 employees already on current page
+                if (employeesOnPage >= maxEmployeesPerPage) {
                   doc.addPage();
                   yPos = 20;
+                  employeesOnPage = 0;
+                }
+
+                // Check if we need a new page due to space
+                if (yPos > 250 && employeesOnPage > 0) {
+                  doc.addPage();
+                  yPos = 20;
+                  employeesOnPage = 0;
                 }
 
                 doc.setFontSize(10);
@@ -2244,11 +2543,17 @@ export default function AttendanceDashboard() {
 
                 doc.setDrawColor(200, 200, 200);
                 doc.line(15, yPos, 195, yPos);
-                yPos += 5;
+                yPos += 8;
+
+                employeesOnPage++;
               });
 
-              doc.save(`employees_data.pdf`);
-              message.success("PDF downloaded successfully!");
+              doc.save(
+                `employees_data_${selectedEmployees.length > 0 ? "selected" : "all"}.pdf`
+              );
+              message.success(
+                `PDF downloaded! (${filteredEmployees.length} employees)`
+              );
             }}
           >
             Download PDF
@@ -2305,10 +2610,9 @@ export default function AttendanceDashboard() {
             <Text style={{ fontSize: "16px", fontWeight: 600 }}>
               All Activities
             </Text>
-            <Button
+            {/* <Button
               type="text"
               danger
-              // icon={<CloseOutlined />}
               onClick={() => {
                 Modal.confirm({
                   title: "Delete All Activities",
@@ -2318,18 +2622,21 @@ export default function AttendanceDashboard() {
                   okType: "danger",
                   cancelText: "Cancel",
                   onOk: () => {
-                    // Get all activities
-                    const adminActivities = JSON.parse(
-                      localStorage.getItem("adminActivities") || "[]"
-                    );
-
-                    // Clear admin activities
+                    // Clear ALL activity sources
                     localStorage.setItem("adminActivities", JSON.stringify([]));
-
-                    message.success(
-                      `Deleted ${adminActivities.length} admin activities!`
+                    localStorage.setItem(
+                      "attendanceRecords",
+                      JSON.stringify([])
                     );
-                    loadData();
+                    localStorage.setItem("leaveRequests", JSON.stringify([]));
+
+                    // Reset state
+                    setActivities([]);
+                    setAttendanceRecords([]);
+                    setLeaveRequests([]);
+
+                    message.success("All activities cleared successfully!");
+                    loadData(); // Reload to update stats
                     setShowAllActivities(false);
                     setActivitySearchText("");
                   },
@@ -2338,7 +2645,7 @@ export default function AttendanceDashboard() {
               style={{ fontSize: "14px", fontWeight: 500 }}
             >
               Clear
-            </Button>
+            </Button> */}
           </div>
         }
         open={showAllActivities}
