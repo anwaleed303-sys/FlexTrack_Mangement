@@ -84,6 +84,11 @@ interface LeaveRequest {
   date: string;
   isCompanyWide?: boolean;
   holidayTitle?: string;
+  approvedBy?: string;
+  approvedDate?: string;
+  rejectedBy?: string;
+  rejectedDate?: string;
+  rejectionReason?: string;
 }
 interface Activity {
   id: string;
@@ -111,6 +116,10 @@ export default function AttendanceDashboard() {
   const [loggedInUser, setLoggedInUser] = useState<any>({});
   const [activitySearchText, setActivitySearchText] = useState("");
   const [isPDFLoading, setIsPDFLoading] = useState(false);
+  const [leaveBalanceModal, setLeaveBalanceModal] = useState(false);
+  const [selectedEmployeeForBalance, setSelectedEmployeeForBalance] =
+    useState<string>("");
+  const [leaveBalanceForm] = Form.useForm();
 
   const [statsData, setStatsData] = useState({
     totalEmployees: 0,
@@ -776,11 +785,121 @@ export default function AttendanceDashboard() {
     }
   };
 
+  // Calculate leave days
+  const calculateLeaveDays = (dates: any) => {
+    if (dates && Array.isArray(dates)) {
+      const startDate = new Date(dates[0]);
+      const endDate = new Date(dates[1]);
+      return (
+        Math.ceil(
+          (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+        ) + 1
+      );
+    }
+    return 0;
+  };
+
+  // Update employee leave balance
+  const updateEmployeeLeaveBalance = (employeeName: string, dates: any) => {
+    const leaveDays = calculateLeaveDays(dates);
+    const leaveBalances = JSON.parse(
+      localStorage.getItem("employeeLeaveBalances") || "{}"
+    );
+
+    if (!leaveBalances[employeeName]) {
+      leaveBalances[employeeName] = {
+        totalLeaves: 20, // Default annual leave allowance
+        usedLeaves: 0,
+        remainingLeaves: 20,
+      };
+    }
+
+    leaveBalances[employeeName].usedLeaves += leaveDays;
+    leaveBalances[employeeName].remainingLeaves =
+      leaveBalances[employeeName].totalLeaves -
+      leaveBalances[employeeName].usedLeaves;
+
+    localStorage.setItem(
+      "employeeLeaveBalances",
+      JSON.stringify(leaveBalances)
+    );
+  };
+
+  // Check if employee has enough leave balance
+  const checkLeaveBalance = (employeeName: string, requestedDays: number) => {
+    const leaveBalances = JSON.parse(
+      localStorage.getItem("employeeLeaveBalances") || "{}"
+    );
+
+    if (!leaveBalances[employeeName]) {
+      return { hasBalance: true, remainingLeaves: 20 };
+    }
+
+    const remainingLeaves = leaveBalances[employeeName].remainingLeaves;
+    return {
+      hasBalance: remainingLeaves >= requestedDays,
+      remainingLeaves: remainingLeaves,
+    };
+  };
+
+  // Get employee current balance
+  const getEmployeeBalance = (employeeName: string) => {
+    const leaveBalances = JSON.parse(
+      localStorage.getItem("employeeLeaveBalances") || "{}"
+    );
+    return (
+      leaveBalances[employeeName] || {
+        totalLeaves: 20,
+        usedLeaves: 0,
+        remainingLeaves: 20,
+      }
+    );
+  };
+
+  // Set custom leave balance for employee
+  const handleSetLeaveBalance = (values: any) => {
+    const leaveBalances = JSON.parse(
+      localStorage.getItem("employeeLeaveBalances") || "{}"
+    );
+
+    const employeeName = values.employeeName;
+    const totalLeaves = parseInt(values.totalLeaves);
+
+    // Get current used leaves if exists
+    const currentUsed = leaveBalances[employeeName]?.usedLeaves || 0;
+
+    leaveBalances[employeeName] = {
+      totalLeaves: totalLeaves,
+      usedLeaves: currentUsed,
+      remainingLeaves: totalLeaves - currentUsed,
+    };
+
+    localStorage.setItem(
+      "employeeLeaveBalances",
+      JSON.stringify(leaveBalances)
+    );
+
+    // Send notification to employee
+    sendNotificationToEmployee(
+      employeeName,
+      "company_announcement",
+      "📋 Leave Balance Updated",
+      `Your annual leave balance has been set to ${totalLeaves} days by admin.`,
+      undefined
+    );
+
+    message.success(
+      `Leave balance set for ${employeeName}: ${totalLeaves} days`
+    );
+    setLeaveBalanceModal(false);
+    leaveBalanceForm.resetFields();
+    setSelectedEmployeeForBalance("");
+  };
+
   const handleLeaveSubmit = (values: any) => {
     const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
 
     if (leaveMode === "company") {
-      // ✅ FIX: Declare announcementId FIRST
       const announcementId = `announce_${Date.now()}`;
 
       // Company-wide leave
@@ -794,12 +913,19 @@ export default function AttendanceDashboard() {
         date: new Date().toISOString(),
         isCompanyWide: true,
         holidayTitle: values.holidayTitle,
+        approvedBy: "Admin",
+        approvedDate: new Date().toISOString(),
       }));
 
       leaves.push(...companyLeaves);
       localStorage.setItem("leaveRequests", JSON.stringify(leaves));
 
-      // Save announcement BEFORE sending notifications
+      // Update employee leave balance
+      companyLeaves.forEach((leave) => {
+        updateEmployeeLeaveBalance(leave.name, leave.dates);
+      });
+
+      // Save announcement
       const announcements = JSON.parse(
         localStorage.getItem("companyAnnouncements") || "[]"
       );
@@ -823,7 +949,7 @@ export default function AttendanceDashboard() {
           `Company Holiday: ${values.holidayTitle}`,
           `You have been granted ${values.holidayTitle}. ${values.reason}`,
           companyLeaves[0].id,
-          announcementId // ✅ Now it's properly defined
+          announcementId
         );
       });
 
@@ -842,18 +968,46 @@ export default function AttendanceDashboard() {
 
       message.success(`${values.holidayTitle} granted to all employees!`);
     } else {
-      // Individual employee leave
+      // Individual employee leave - Check balance first
+      const requestedDays = calculateLeaveDays(values.dates);
+      const balanceCheck = checkLeaveBalance(
+        values.employeeName,
+        requestedDays
+      );
+
+      if (!balanceCheck.hasBalance) {
+        message.error(
+          `Cannot grant leave! ${values.employeeName} only has ${balanceCheck.remainingLeaves} days remaining. Requested: ${requestedDays} days.`
+        );
+        return;
+      }
+
+      // Admin grants it directly as Approved
       const newLeave: LeaveRequest = {
         id: Date.now(),
         name: values.employeeName,
         dates: values.dates,
         leaveType: values.leaveType,
         reason: values.reason,
-        status: "Pending",
+        status: "Approved",
         date: new Date().toISOString(),
+        approvedBy: "Admin",
+        approvedDate: new Date().toISOString(),
       };
       leaves.push(newLeave);
       localStorage.setItem("leaveRequests", JSON.stringify(leaves));
+
+      // Update employee leave balance
+      updateEmployeeLeaveBalance(newLeave.name, newLeave.dates);
+
+      // Send notification to employee
+      sendNotificationToEmployee(
+        values.employeeName,
+        "leave_status",
+        "✅ Leave Approved by Admin",
+        `Your leave request has been approved by admin for ${requestedDays} days.`,
+        newLeave.id
+      );
 
       // Log admin activity
       const adminActivities = JSON.parse(
@@ -881,24 +1035,40 @@ export default function AttendanceDashboard() {
     const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
     const targetLeave = leaves.find((l: LeaveRequest) => l.id === leaveId);
 
-    const updated = leaves.map((l: LeaveRequest) =>
-      l.id === leaveId ? { ...l, status } : l
-    );
-    localStorage.setItem("leaveRequests", JSON.stringify(updated));
+    if (!targetLeave) return;
 
-    // Send notification to employee
-    if (targetLeave) {
-      const statusEmoji = status === "Approved" ? "✅" : "❌";
-      const statusMsg =
-        status === "Approved"
-          ? "Your leave request has been approved!"
-          : "Your leave request has been rejected.";
+    // If approving, check leave balance
+    if (status === "Approved") {
+      const requestedDays = calculateLeaveDays(targetLeave.dates);
+      const balanceCheck = checkLeaveBalance(targetLeave.name, requestedDays);
+
+      if (!balanceCheck.hasBalance) {
+        message.error(
+          `Cannot approve! ${targetLeave.name} only has ${balanceCheck.remainingLeaves} days remaining. Requested: ${requestedDays} days.`
+        );
+        return;
+      }
+
+      // Update leave balance
+      updateEmployeeLeaveBalance(targetLeave.name, targetLeave.dates);
+
+      const updated = leaves.map((l: LeaveRequest) =>
+        l.id === leaveId
+          ? {
+              ...l,
+              status: "Approved",
+              approvedBy: "Admin",
+              approvedDate: new Date().toISOString(),
+            }
+          : l
+      );
+      localStorage.setItem("leaveRequests", JSON.stringify(updated));
 
       sendNotificationToEmployee(
         targetLeave.name,
         "leave_status",
-        `${statusEmoji} Leave ${status}`,
-        statusMsg,
+        "✅ Leave Approved",
+        `Your leave request for ${requestedDays} days has been approved!`,
         leaveId
       );
 
@@ -907,17 +1077,87 @@ export default function AttendanceDashboard() {
         localStorage.getItem("adminActivities") || "[]"
       );
       adminActivities.push({
-        id: `admin-${status}-${leaveId}-${Date.now()}`,
+        id: `admin-approve-${leaveId}-${Date.now()}`,
         employee: targetLeave.name,
-        action: `leave ${status.toLowerCase()} by admin`,
+        action: `leave approved by admin`,
         time: new Date().toISOString(),
         type: "admin",
       });
       localStorage.setItem("adminActivities", JSON.stringify(adminActivities));
+
+      message.success("Leave approved successfully!");
+      loadData();
+      return;
     }
 
-    message.success(`Leave ${status.toLowerCase()} successfully!`);
-    loadData();
+    // If rejecting, show rejection reason modal
+    if (status === "Rejected") {
+      Modal.confirm({
+        title: "Reject Leave Request",
+        content: (
+          <div>
+            <p style={{ marginBottom: "12px" }}>
+              Please provide a reason for rejection:
+            </p>
+            <TextArea
+              id="rejection-reason"
+              rows={4}
+              placeholder="Enter rejection reason..."
+            />
+          </div>
+        ),
+        okText: "Reject Leave",
+        okType: "danger",
+        cancelText: "Cancel",
+        onOk: () => {
+          const reasonElement = document.getElementById(
+            "rejection-reason"
+          ) as HTMLTextAreaElement;
+          const rejectionReason = reasonElement?.value || "No reason provided";
+
+          const updated = leaves.map((l: LeaveRequest) =>
+            l.id === leaveId
+              ? {
+                  ...l,
+                  status: "Rejected",
+                  rejectionReason: rejectionReason,
+                  rejectedBy: "Admin",
+                  rejectedDate: new Date().toISOString(),
+                }
+              : l
+          );
+          localStorage.setItem("leaveRequests", JSON.stringify(updated));
+
+          // Send notification
+          sendNotificationToEmployee(
+            targetLeave.name,
+            "leave_status",
+            "❌ Leave Rejected",
+            `Your leave request has been rejected. Reason: ${rejectionReason}`,
+            leaveId
+          );
+
+          // Log admin activity
+          const adminActivities = JSON.parse(
+            localStorage.getItem("adminActivities") || "[]"
+          );
+          adminActivities.push({
+            id: `admin-reject-${leaveId}-${Date.now()}`,
+            employee: targetLeave.name,
+            action: `leave rejected by admin: ${rejectionReason}`,
+            time: new Date().toISOString(),
+            type: "admin",
+          });
+          localStorage.setItem(
+            "adminActivities",
+            JSON.stringify(adminActivities)
+          );
+
+          message.success("Leave rejected successfully!");
+          loadData();
+        },
+      });
+    }
   };
   const handleDeleteActivity = (activityId: string) => {
     if (activityId.startsWith("admin-")) {
@@ -1919,11 +2159,13 @@ export default function AttendanceDashboard() {
                       Admin operations
                     </Text>
                     <Space
-                      direction="horizontal" // ← changed from vertical
+                      direction="horizontal"
                       style={{
                         width: "100%",
                         display: "flex",
                         justifyContent: "space-between",
+                        flexWrap: "wrap",
+                        gap: "8px",
                       }}
                     >
                       <Button
@@ -1934,6 +2176,7 @@ export default function AttendanceDashboard() {
                         }}
                         style={{
                           flex: 1,
+                          minWidth: "120px",
                           backgroundColor: "#10b981",
                           borderColor: "#10b981",
                           borderRadius: "8px",
@@ -1946,18 +2189,18 @@ export default function AttendanceDashboard() {
                         onClick={() => {
                           setCurrentAction("approve");
                           setApproveModal(true);
-                          // Mark as viewed by admin when clicked
                           if (loggedInUser.userRole === "admin") {
                             setPendingLeaveCount(0);
                           }
                         }}
                         style={{
                           flex: 1,
+                          minWidth: "120px",
                           borderRadius: "8px",
                           borderColor: "#d1d5db",
                           color: "#6b7280",
                           fontWeight: 500,
-                          position: "relative", // ← Make sure this is here
+                          position: "relative",
                         }}
                       >
                         Approve
@@ -1979,7 +2222,7 @@ export default function AttendanceDashboard() {
                                 fontSize: "12px",
                                 fontWeight: "bold",
                                 border: "2px solid white",
-                                zIndex: 10, // ← Add this to ensure it's on top
+                                zIndex: 10,
                               }}
                             >
                               {pendingLeaveCount}
@@ -1993,6 +2236,7 @@ export default function AttendanceDashboard() {
                         }}
                         style={{
                           flex: 1,
+                          minWidth: "120px",
                           borderRadius: "8px",
                           borderColor: "#d1d5db",
                           color: "#6b7280",
@@ -2000,6 +2244,19 @@ export default function AttendanceDashboard() {
                         }}
                       >
                         Export
+                      </Button>
+                      <Button
+                        onClick={() => setLeaveBalanceModal(true)}
+                        style={{
+                          flex: 1,
+                          minWidth: "120px",
+                          borderRadius: "8px",
+                          borderColor: "#d1d5db",
+                          color: "#6b7280",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Set Balance
                       </Button>
                     </Space>
                   </Card>
@@ -2164,107 +2421,124 @@ export default function AttendanceDashboard() {
           </Form.Item>
         </Form>
       </Modal>
+      {/* Set Leave Balance Modal */}
       <Modal
-        title="Grant Leave"
-        open={leaveModal}
+        title="Set Employee Leave Balance"
+        open={leaveBalanceModal}
         onCancel={() => {
-          setLeaveModal(false);
-          leaveForm.resetFields();
-          setLeaveMode("individual");
+          setLeaveBalanceModal(false);
+          leaveBalanceForm.resetFields();
+          setSelectedEmployeeForBalance("");
         }}
         footer={null}
-        width={600}
+        width={500}
       >
-        <Form form={leaveForm} onFinish={handleLeaveSubmit} layout="vertical">
-          {/* Leave Mode Selection */}
-          <Form.Item label="Leave Type">
+        <Form
+          form={leaveBalanceForm}
+          onFinish={handleSetLeaveBalance}
+          layout="vertical"
+        >
+          <Form.Item
+            name="employeeName"
+            label="Select Employee"
+            rules={[{ required: true, message: "Please select an employee!" }]}
+          >
             <Select
-              value={leaveMode}
-              onChange={(value) => setLeaveMode(value)}
-              style={{ width: "100%" }}
-            >
-              <Option value="individual">Individual Employee Leave</Option>
-              <Option value="company">Company-Wide/Government Holiday</Option>
-            </Select>
+              placeholder="Choose employee"
+              onChange={(value) => setSelectedEmployeeForBalance(value)}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label as string)
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+              options={employees.map((emp) => ({
+                label: `${emp.name} - ${emp.specificRole}`,
+                value: emp.name,
+              }))}
+            />
           </Form.Item>
 
-          {/* Conditional Fields Based on Mode */}
-          {leaveMode === "individual" ? (
-            <Form.Item
-              name="employeeName"
-              label="Employee Name"
-              rules={[{ required: true, message: "Please select employee!" }]}
+          {selectedEmployeeForBalance && (
+            <div
+              style={{
+                padding: "12px",
+                background: "#f5f5f5",
+                borderRadius: "8px",
+                marginBottom: "16px",
+              }}
             >
-              <Select placeholder="Select employee">
-                {employees.map((emp) => (
-                  <Option key={emp.email} value={emp.name}>
-                    {emp.name}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          ) : (
-            <Form.Item
-              name="holidayTitle"
-              label="Holiday/Leave Title"
-              rules={[
-                { required: true, message: "Please enter holiday title!" },
-              ]}
-            >
-              <Input placeholder="e.g., Independence Day, Eid Holiday" />
-            </Form.Item>
+              <Text strong>Current Balance:</Text>
+              <div style={{ marginTop: "8px" }}>
+                <Text>
+                  Total:{" "}
+                  {getEmployeeBalance(selectedEmployeeForBalance).totalLeaves}{" "}
+                  days
+                </Text>
+                <br />
+                <Text>
+                  Used:{" "}
+                  {getEmployeeBalance(selectedEmployeeForBalance).usedLeaves}{" "}
+                  days
+                </Text>
+                <br />
+                <Text type="success">
+                  Remaining:{" "}
+                  {
+                    getEmployeeBalance(selectedEmployeeForBalance)
+                      .remainingLeaves
+                  }{" "}
+                  days
+                </Text>
+              </div>
+            </div>
           )}
 
           <Form.Item
-            name="dates"
-            label="Leave Duration"
-            rules={[{ required: true, message: "Please select dates!" }]}
+            name="totalLeaves"
+            label="Total Annual Leave Days"
+            rules={[
+              { required: true, message: "Please enter total leave days!" },
+              {
+                type: "number",
+                min: 0,
+                max: 365,
+                message: "Please enter a valid number (0-365)!",
+              },
+            ]}
+            extra="Standard: 12-20 days per year"
           >
-            <RangePicker style={{ width: "100%" }} />
-          </Form.Item>
-
-          <Form.Item
-            name="leaveType"
-            label="Leave Category"
-            rules={[{ required: true, message: "Please select leave type!" }]}
-          >
-            <Select placeholder="Select leave type">
-              <Option value="annual">Annual Leave</Option>
-              <Option value="sick">Sick Leave</Option>
-              <Option value="casual">Casual Leave</Option>
-              <Option value="emergency">Emergency Leave</Option>
-              {leaveMode === "company" && (
-                <>
-                  <Option value="government">Government Holiday</Option>
-                  <Option value="company-event">Company Event</Option>
-                  <Option value="religious">Religious Holiday</Option>
-                </>
-              )}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="reason"
-            label="Description"
-            rules={[{ required: true, message: "Please enter description!" }]}
-          >
-            <TextArea rows={4} placeholder="Enter reason for leave" />
+            <Input
+              type="number"
+              placeholder="e.g., 12"
+              suffix="days"
+              min={0}
+              max={365}
+            />
           </Form.Item>
 
           <Form.Item>
-            <Button
-              htmlType="submit"
-              block
-              style={{
-                backgroundColor: "#10b981",
-                borderColor: "#10b981",
-                color: "white",
-                border: "none",
-                fontWeight: 500,
-              }}
-            >
-              Grant Leave
-            </Button>
+            <Space style={{ width: "100%", justifyContent: "flex-end" }}>
+              <Button
+                onClick={() => {
+                  setLeaveBalanceModal(false);
+                  leaveBalanceForm.resetFields();
+                  setSelectedEmployeeForBalance("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                style={{
+                  backgroundColor: "#10b981",
+                  borderColor: "#10b981",
+                }}
+              >
+                Set Balance
+              </Button>
+            </Space>
           </Form.Item>
         </Form>
       </Modal>
