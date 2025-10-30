@@ -117,6 +117,10 @@ export default function AttendanceDashboard() {
   const [activitySearchText, setActivitySearchText] = useState("");
   const [isPDFLoading, setIsPDFLoading] = useState(false);
   const [leaveBalanceModal, setLeaveBalanceModal] = useState(false);
+  const [viewShiftsModal, setViewShiftsModal] = useState(false);
+  const [shiftSearchText, setShiftSearchText] = useState("");
+  const [shiftCurrentPage, setShiftCurrentPage] = useState(1);
+  const shiftPageSize = 3;
   const [selectedEmployeeForBalance, setSelectedEmployeeForBalance] =
     useState<string>("");
   const [leaveBalanceForm] = Form.useForm();
@@ -894,6 +898,93 @@ export default function AttendanceDashboard() {
     setLeaveBalanceModal(false);
     leaveBalanceForm.resetFields();
     setSelectedEmployeeForBalance("");
+  };
+
+  // Get employee shift information
+  const getEmployeeShiftInfo = (employee: Employee) => {
+    const today = new Date();
+    const assignments = JSON.parse(
+      localStorage.getItem("adminShiftAssignments") || "[]"
+    );
+
+    const currentAssignment = assignments.find((assignment: any) => {
+      const startDate = new Date(assignment.startDate);
+      const endDate = new Date(assignment.endDate);
+      return (
+        assignment.employeeEmail === employee.email &&
+        today >= startDate &&
+        today <= endDate
+      );
+    });
+
+    return {
+      currentShift: currentAssignment
+        ? currentAssignment.shift
+        : employee.shift || "N/A",
+      assignedBy: currentAssignment ? currentAssignment.assignedBy : "Default",
+      startDate: currentAssignment ? currentAssignment.startDate : "N/A",
+      endDate: currentAssignment ? currentAssignment.endDate : "N/A",
+    };
+  };
+
+  // Filter employees based on shift search
+  const getFilteredShiftEmployees = () => {
+    return employees.filter((emp) => {
+      const searchLower = shiftSearchText.toLowerCase();
+      const shiftInfo = getEmployeeShiftInfo(emp);
+      return (
+        emp.name.toLowerCase().includes(searchLower) ||
+        emp.email.toLowerCase().includes(searchLower) ||
+        emp.specificRole.toLowerCase().includes(searchLower) ||
+        shiftInfo.currentShift.toLowerCase().includes(searchLower)
+      );
+    });
+  };
+
+  // Get paginated shift employees
+  const getPaginatedShiftEmployees = () => {
+    const filtered = getFilteredShiftEmployees();
+    const startIndex = (shiftCurrentPage - 1) * shiftPageSize;
+    const endIndex = startIndex + shiftPageSize;
+    return filtered.slice(startIndex, endIndex);
+  };
+
+  // Format shift label
+  const formatShiftLabel = (shift: string) => {
+    const shiftMap: any = {
+      morning: "Morning (6 AM - 2 PM)",
+      afternoon: "Afternoon (2 PM - 10 PM)",
+      evening: "Evening (10 PM - 6 AM)",
+      closed: "Closed (No Shift)",
+    };
+    return shiftMap[shift] || shift;
+  };
+  // Get shift statistics
+  const getShiftStatistics = () => {
+    const stats = {
+      morning: 0,
+      afternoon: 0,
+      evening: 0,
+      closed: 0,
+      total: employees.length,
+    };
+
+    employees.forEach((emp) => {
+      const shiftInfo = getEmployeeShiftInfo(emp);
+      const shift = shiftInfo.currentShift.toLowerCase();
+
+      if (shift.includes("morning")) {
+        stats.morning++;
+      } else if (shift.includes("afternoon")) {
+        stats.afternoon++;
+      } else if (shift.includes("evening")) {
+        stats.evening++;
+      } else if (shift.includes("closed") || shift === "n/a") {
+        stats.closed++;
+      }
+    });
+
+    return stats;
   };
 
   const handleLeaveSubmit = (values: any) => {
@@ -2113,6 +2204,7 @@ export default function AttendanceDashboard() {
                     </Text>
                     <Button
                       type="default"
+                      onClick={() => setViewShiftsModal(true)}
                       style={{
                         width: "100%",
                         borderRadius: "8px",
@@ -2872,6 +2964,334 @@ export default function AttendanceDashboard() {
         </Space>
       </Modal>
 
+      {/* View Shifts Modal */}
+      <Modal
+        title={
+          <Text style={{ fontSize: "18px", fontWeight: 600, color: "#111827" }}>
+            Employee Shift Schedule
+          </Text>
+        }
+        open={viewShiftsModal}
+        onCancel={() => {
+          setViewShiftsModal(false);
+          setShiftSearchText("");
+          setShiftCurrentPage(1);
+        }}
+        footer={null}
+        width={900}
+        bodyStyle={{
+          maxHeight: "600px",
+          overflowY: "auto",
+        }}
+      >
+        {/* Shift Statistics Summary */}
+        <Row gutter={[12, 12]} style={{ marginBottom: "20px" }}>
+          <Col xs={12} sm={6}>
+            <Card
+              size="small"
+              style={{
+                borderRadius: "8px",
+                border: "1px solid #10b981",
+                background: "#f0fdf4",
+              }}
+            >
+              <div style={{ textAlign: "center" }}>
+                <Text
+                  style={{
+                    fontSize: "11px",
+                    color: "#065f46",
+                    fontWeight: 500,
+                    display: "block",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Morning Shift
+                </Text>
+                <Title
+                  level={3}
+                  style={{ margin: 0, color: "#10b981", fontSize: "24px" }}
+                >
+                  {getShiftStatistics().morning}
+                </Title>
+                <Text style={{ fontSize: "10px", color: "#6b7280" }}>
+                  employees
+                </Text>
+              </div>
+            </Card>
+          </Col>
+
+          <Col xs={12} sm={6}>
+            <Card
+              size="small"
+              style={{
+                borderRadius: "8px",
+                border: "1px solid #3b82f6",
+                background: "#eff6ff",
+              }}
+            >
+              <div style={{ textAlign: "center" }}>
+                <Text
+                  style={{
+                    fontSize: "11px",
+                    color: "#1e40af",
+                    fontWeight: 500,
+                    display: "block",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Afternoon Shift
+                </Text>
+                <Title
+                  level={3}
+                  style={{ margin: 0, color: "#3b82f6", fontSize: "24px" }}
+                >
+                  {getShiftStatistics().afternoon}
+                </Title>
+                <Text style={{ fontSize: "10px", color: "#6b7280" }}>
+                  employees
+                </Text>
+              </div>
+            </Card>
+          </Col>
+
+          <Col xs={12} sm={6}>
+            <Card
+              size="small"
+              style={{
+                borderRadius: "8px",
+                border: "1px solid #8b5cf6",
+                background: "#f5f3ff",
+              }}
+            >
+              <div style={{ textAlign: "center" }}>
+                <Text
+                  style={{
+                    fontSize: "11px",
+                    color: "#6b21a8",
+                    fontWeight: 500,
+                    display: "block",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Evening Shift
+                </Text>
+                <Title
+                  level={3}
+                  style={{ margin: 0, color: "#8b5cf6", fontSize: "24px" }}
+                >
+                  {getShiftStatistics().evening}
+                </Title>
+                <Text style={{ fontSize: "10px", color: "#6b7280" }}>
+                  employees
+                </Text>
+              </div>
+            </Card>
+          </Col>
+
+          <Col xs={12} sm={6}>
+            <Card
+              size="small"
+              style={{
+                borderRadius: "8px",
+                border: "1px solid #ef4444",
+                background: "#fef2f2",
+              }}
+            >
+              <div style={{ textAlign: "center" }}>
+                <Text
+                  style={{
+                    fontSize: "11px",
+                    color: "#991b1b",
+                    fontWeight: 500,
+                    display: "block",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Closed/Unassigned
+                </Text>
+                <Title
+                  level={3}
+                  style={{ margin: 0, color: "#ef4444", fontSize: "24px" }}
+                >
+                  {getShiftStatistics().closed}
+                </Title>
+                <Text style={{ fontSize: "10px", color: "#6b7280" }}>
+                  employees
+                </Text>
+              </div>
+            </Card>
+          </Col>
+        </Row>
+
+        <Divider style={{ margin: "16px 0" }} />
+
+        {/* Search Bar */}
+        <div style={{ marginBottom: "16px" }}>
+          <Input
+            placeholder="Search by name, email, role, or shift..."
+            value={shiftSearchText}
+            onChange={(e) => {
+              setShiftSearchText(e.target.value);
+              setShiftCurrentPage(1); // Reset to first page on search
+            }}
+            allowClear
+            prefix={<UserOutlined style={{ color: "#bfbfbf" }} />}
+            style={{
+              borderRadius: "8px",
+              padding: "10px 12px",
+            }}
+          />
+          <Text
+            type="secondary"
+            style={{ fontSize: "12px", display: "block", marginTop: "8px" }}
+          >
+            Showing{" "}
+            {Math.min(
+              (shiftCurrentPage - 1) * shiftPageSize + 1,
+              getFilteredShiftEmployees().length
+            )}{" "}
+            -{" "}
+            {Math.min(
+              shiftCurrentPage * shiftPageSize,
+              getFilteredShiftEmployees().length
+            )}{" "}
+            of {getFilteredShiftEmployees().length} employees
+          </Text>
+        </div>
+
+        {/* Shifts Table */}
+        <Table
+          columns={[
+            {
+              title: "Employee",
+              key: "employee",
+              width: 200,
+              render: (_: any, record: Employee) => (
+                <Space>
+                  <Avatar
+                    src={record.profileImage}
+                    icon={<UserOutlined />}
+                    size={40}
+                  />
+                  <div>
+                    <Text strong style={{ display: "block", fontSize: "14px" }}>
+                      {record.name}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: "12px" }}>
+                      {record.specificRole}
+                    </Text>
+                  </div>
+                </Space>
+              ),
+            },
+            {
+              title: "Current Shift",
+              key: "shift",
+              width: 180,
+              render: (_: any, record: Employee) => {
+                const shiftInfo = getEmployeeShiftInfo(record);
+                return (
+                  <Tag
+                    color={
+                      shiftInfo.currentShift === "morning"
+                        ? "green"
+                        : shiftInfo.currentShift === "afternoon"
+                          ? "blue"
+                          : shiftInfo.currentShift === "evening"
+                            ? "purple"
+                            : "red"
+                    }
+                    style={{ fontSize: "13px", padding: "4px 12px" }}
+                  >
+                    {formatShiftLabel(shiftInfo.currentShift)}
+                  </Tag>
+                );
+              },
+            },
+            {
+              title: "Duration",
+              key: "duration",
+              width: 200,
+              render: (_: any, record: Employee) => {
+                const shiftInfo = getEmployeeShiftInfo(record);
+                if (shiftInfo.startDate === "N/A") {
+                  return <Text type="secondary">Default Schedule</Text>;
+                }
+                return (
+                  <div>
+                    <Text style={{ fontSize: "12px", display: "block" }}>
+                      From: {new Date(shiftInfo.startDate).toLocaleDateString()}
+                    </Text>
+                    <Text style={{ fontSize: "12px", display: "block" }}>
+                      To: {new Date(shiftInfo.endDate).toLocaleDateString()}
+                    </Text>
+                  </div>
+                );
+              },
+            },
+            {
+              title: "Assigned By",
+              key: "assignedBy",
+              width: 120,
+              render: (_: any, record: Employee) => {
+                const shiftInfo = getEmployeeShiftInfo(record);
+                return (
+                  <Tag
+                    color={
+                      shiftInfo.assignedBy === "Default" ? "default" : "blue"
+                    }
+                  >
+                    {shiftInfo.assignedBy}
+                  </Tag>
+                );
+              },
+            },
+          ]}
+          dataSource={getPaginatedShiftEmployees()}
+          rowKey="email"
+          pagination={false}
+          scroll={{ x: 700 }}
+          locale={{
+            emptyText: (
+              <div style={{ padding: "40px", textAlign: "center" }}>
+                <Text type="secondary">No employees found</Text>
+              </div>
+            ),
+          }}
+        />
+
+        {/* Pagination */}
+        {getFilteredShiftEmployees().length > shiftPageSize && (
+          <div
+            style={{
+              marginTop: "16px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <Button
+              disabled={shiftCurrentPage === 1}
+              onClick={() => setShiftCurrentPage(shiftCurrentPage - 1)}
+            >
+              Previous
+            </Button>
+            <Text>
+              Page {shiftCurrentPage} of{" "}
+              {Math.ceil(getFilteredShiftEmployees().length / shiftPageSize)}
+            </Text>
+            <Button
+              disabled={
+                shiftCurrentPage >=
+                Math.ceil(getFilteredShiftEmployees().length / shiftPageSize)
+              }
+              onClick={() => setShiftCurrentPage(shiftCurrentPage + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        )}
+      </Modal>
       <Modal
         title={
           <div
@@ -3044,6 +3464,263 @@ export default function AttendanceDashboard() {
             </div>
           )}
         </div>
+      </Modal>
+      {/* New Leave Modal - Admin Grant Leave */}
+      <Modal
+        title={
+          <Text style={{ fontSize: "18px", fontWeight: 600, color: "#111827" }}>
+            {leaveMode === "company"
+              ? "Grant Company Holiday"
+              : "Grant Employee Leave"}
+          </Text>
+        }
+        open={leaveModal}
+        onCancel={() => {
+          setLeaveModal(false);
+          leaveForm.resetFields();
+          setLeaveMode("individual");
+        }}
+        footer={null}
+        width={700}
+      >
+        {/* Leave Mode Selector */}
+        <div style={{ marginBottom: "24px" }}>
+          <Text strong style={{ marginBottom: "12px", display: "block" }}>
+            Leave Type
+          </Text>
+          <Space size="large">
+            <Button
+              type={leaveMode === "individual" ? "primary" : "default"}
+              onClick={() => {
+                setLeaveMode("individual");
+                leaveForm.resetFields();
+              }}
+              style={{
+                borderRadius: "8px",
+                padding: "8px 24px",
+                height: "auto",
+                backgroundColor:
+                  leaveMode === "individual" ? "#10b981" : "transparent",
+                borderColor: leaveMode === "individual" ? "#10b981" : "#d9d9d9",
+              }}
+            >
+              Individual Employee
+            </Button>
+            <Button
+              type={leaveMode === "company" ? "primary" : "default"}
+              onClick={() => {
+                setLeaveMode("company");
+                leaveForm.resetFields();
+              }}
+              style={{
+                borderRadius: "8px",
+                padding: "8px 24px",
+                height: "auto",
+                backgroundColor:
+                  leaveMode === "company" ? "#10b981" : "transparent",
+                borderColor: leaveMode === "company" ? "#10b981" : "#d9d9d9",
+              }}
+            >
+              Company Holiday
+            </Button>
+          </Space>
+        </div>
+
+        <Divider style={{ margin: "16px 0" }} />
+
+        <Form
+          form={leaveForm}
+          layout="vertical"
+          onFinish={handleLeaveSubmit}
+          initialValues={{
+            leaveType: "annual",
+          }}
+        >
+          {/* Individual Employee Leave */}
+          {leaveMode === "individual" && (
+            <>
+              <Form.Item
+                label="Select Employee"
+                name="employeeName"
+                rules={[
+                  { required: true, message: "Please select an employee!" },
+                ]}
+              >
+                <Select
+                  placeholder="Choose employee"
+                  showSearch
+                  size="large"
+                  filterOption={(input, option) =>
+                    (option?.label as string)
+                      .toLowerCase()
+                      .includes(input.toLowerCase())
+                  }
+                  options={employees.map((emp) => ({
+                    label: `${emp.name} - ${emp.specificRole}`,
+                    value: emp.name,
+                  }))}
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Leave Type"
+                name="leaveType"
+                rules={[
+                  { required: true, message: "Please select leave type!" },
+                ]}
+              >
+                <Select size="large" placeholder="Select leave type">
+                  <Option value="annual">Annual Leave</Option>
+                  <Option value="sick">Sick Leave</Option>
+                  <Option value="casual">Casual Leave</Option>
+                  <Option value="emergency">Emergency Leave</Option>
+                </Select>
+              </Form.Item>
+
+              <Form.Item
+                label="Leave Duration"
+                name="dates"
+                rules={[
+                  { required: true, message: "Please select leave duration!" },
+                ]}
+              >
+                <RangePicker
+                  size="large"
+                  style={{ width: "100%" }}
+                  format="MMM D, YYYY"
+                  // disabledDate={(current) => {
+                  //   return current && current < new Date().setHours(0, 0, 0, 0);
+                  // }}
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Reason"
+                name="reason"
+                rules={[
+                  { required: true, message: "Please provide a reason!" },
+                ]}
+              >
+                <TextArea
+                  rows={4}
+                  placeholder="Enter reason for leave..."
+                  maxLength={200}
+                  showCount
+                />
+              </Form.Item>
+            </>
+          )}
+
+          {/* Company Holiday */}
+          {leaveMode === "company" && (
+            <>
+              <Form.Item
+                label="Holiday Title"
+                name="holidayTitle"
+                rules={[
+                  { required: true, message: "Please enter holiday title!" },
+                ]}
+              >
+                <Input
+                  size="large"
+                  placeholder="e.g., Independence Day, New Year, Eid..."
+                  maxLength={100}
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Leave Type"
+                name="leaveType"
+                rules={[
+                  { required: true, message: "Please select leave type!" },
+                ]}
+              >
+                <Select size="large" placeholder="Select leave type">
+                  <Option value="annual">Public Holiday</Option>
+                  <Option value="casual">Festival Leave</Option>
+                  <Option value="emergency">Emergency Closure</Option>
+                </Select>
+              </Form.Item>
+
+              <Form.Item
+                label="Holiday Duration"
+                name="dates"
+                rules={[
+                  {
+                    required: true,
+                    message: "Please select holiday duration!",
+                  },
+                ]}
+              >
+                <RangePicker
+                  size="large"
+                  style={{ width: "100%" }}
+                  format="MMM D, YYYY"
+                  // disabledDate={(current) => {
+                  //   return current && current < new Date().setHours(0, 0, 0, 0);
+                  // }}
+                />
+              </Form.Item>
+
+              <Form.Item
+                label="Description/Announcement"
+                name="reason"
+                rules={[
+                  { required: true, message: "Please provide description!" },
+                ]}
+              >
+                <TextArea
+                  rows={4}
+                  placeholder="Enter holiday announcement or description..."
+                  maxLength={300}
+                  showCount
+                />
+              </Form.Item>
+
+              <div
+                style={{
+                  padding: "12px",
+                  background: "#fff7ed",
+                  borderRadius: "8px",
+                  border: "1px solid #fed7aa",
+                  marginBottom: "16px",
+                }}
+              >
+                <Text style={{ fontSize: "13px", color: "#9a3412" }}>
+                  ⚠️ <strong>Note:</strong> This holiday will be granted to all
+                  employees in the system. All employees will receive a
+                  notification about this company holiday.
+                </Text>
+              </div>
+            </>
+          )}
+
+          <Form.Item style={{ marginBottom: 0, marginTop: "24px" }}>
+            <Space style={{ width: "100%", justifyContent: "flex-end" }}>
+              <Button
+                onClick={() => {
+                  setLeaveModal(false);
+                  leaveForm.resetFields();
+                  setLeaveMode("individual");
+                }}
+                size="large"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                size="large"
+                style={{
+                  backgroundColor: "#10b981",
+                  borderColor: "#10b981",
+                }}
+              >
+                {leaveMode === "company" ? "Grant Holiday" : "Grant Leave"}
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );

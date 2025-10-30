@@ -2114,6 +2114,10 @@ import {
   LockOutlined,
   MailOutlined,
   TeamOutlined,
+  BankOutlined, // Add this
+  EnvironmentOutlined, // Add this
+  GlobalOutlined, // Add this
+  DollarOutlined, // Add this
   // UploadOutlined,
   ClockCircleOutlined,
   CalendarOutlined,
@@ -2134,6 +2138,38 @@ const adminRoles = [
   "IT Manager",
   "General Manager",
 ];
+// Pay types for employees
+const payTypes = ["Hourly", "Monthly Salary", "Project-based", "Commission"];
+
+// Timezones
+const timezones = [
+  "UTC-12:00",
+  "UTC-11:00",
+  "UTC-10:00",
+  "UTC-09:00",
+  "UTC-08:00 (PST)",
+  "UTC-07:00 (MST)",
+  "UTC-06:00 (CST)",
+  "UTC-05:00 (EST)",
+  "UTC-04:00",
+  "UTC-03:00",
+  "UTC-02:00",
+  "UTC-01:00",
+  "UTC+00:00 (GMT)",
+  "UTC+01:00",
+  "UTC+02:00",
+  "UTC+03:00",
+  "UTC+04:00",
+  "UTC+05:00 (PKT)",
+  "UTC+05:30 (IST)",
+  "UTC+06:00",
+  "UTC+07:00",
+  "UTC+08:00",
+  "UTC+09:00",
+  "UTC+10:00",
+  "UTC+11:00",
+  "UTC+12:00",
+];
 
 // Employee categories
 const employeeCategories = [
@@ -2146,6 +2182,19 @@ const employeeCategories = [
 
 // Working hours options
 const workingHoursOptions = [20, 30, 40, 45, 48];
+// Currency options
+const currencies = [
+  { symbol: "$", name: "USD - US Dollar" },
+  { symbol: "€", name: "EUR - Euro" },
+  { symbol: "£", name: "GBP - British Pound" },
+  { symbol: "¥", name: "JPY - Japanese Yen" },
+  { symbol: "₹", name: "INR - Indian Rupee" },
+  { symbol: "₨", name: "PKR - Pakistani Rupee" },
+  { symbol: "د.إ", name: "AED - UAE Dirham" },
+  { symbol: "﷼", name: "SAR - Saudi Riyal" },
+  { symbol: "C$", name: "CAD - Canadian Dollar" },
+  { symbol: "A$", name: "AUD - Australian Dollar" },
+];
 
 interface RegisterFormValues {
   name: string;
@@ -2155,10 +2204,22 @@ interface RegisterFormValues {
   userRole: string;
   specificRole?: string;
   customRole?: string;
+  // Admin fields
+  companyName?: string;
+  companyEmail?: string;
+  companyAddress?: string;
+  timezone?: string;
+  // Employee fields
   employmentType?: string;
   shift?: string;
+  customShift?: string;
   weeklyHours?: number;
   customWeeklyHours?: number;
+  payType?: string;
+  currency?: string;
+  customPayType?: string;
+  payAmount?: number;
+  onboardingNotes?: string;
   profileImage?: string;
 }
 
@@ -2299,6 +2360,8 @@ export default function Register() {
   const [isFirstTimeAdmin, setIsFirstTimeAdmin] = useState(false);
   const [accessGranted, setAccessGranted] = useState(false);
   const [showCustomShift, setShowCustomShift] = useState(false);
+  const [showCustomPayType, setShowCustomPayType] = useState(false);
+  const [selectedCurrency, setSelectedCurrency] = useState<string>("$");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -2330,6 +2393,11 @@ export default function Register() {
         values.weeklyHours === 0
           ? values.customWeeklyHours
           : values.weeklyHours;
+      const finalPayType =
+        values.payType === "custom" ? values.customPayType : values.payType;
+
+      const finalShift =
+        values.shift === "custom" ? values.customShift : values.shift;
 
       const registrationData: any = {
         name: values.name,
@@ -2342,6 +2410,12 @@ export default function Register() {
       };
 
       if (values.userRole === "admin") {
+        // Add company information
+        registrationData.companyName = values.companyName;
+        registrationData.companyEmail = values.companyEmail;
+        registrationData.companyAddress = values.companyAddress;
+        registrationData.timezone = values.timezone;
+
         if (isFirstTimeAdmin) {
           const privateId = `ADMIN-${Date.now()}-${Math.random()
             .toString(36)
@@ -2390,9 +2464,14 @@ export default function Register() {
           setUserRole("");
         }
       } else {
+        // Employee fields
         registrationData.employmentType = values.employmentType;
-        registrationData.shift = values.shift;
+        registrationData.shift = finalShift;
         registrationData.weeklyHours = finalWeeklyHours;
+        registrationData.payType = finalPayType;
+        registrationData.currency = values.currency;
+        registrationData.payAmount = values.payAmount;
+        registrationData.onboardingNotes = values.onboardingNotes || "";
 
         const existingEmployees = JSON.parse(
           localStorage.getItem("employees") || "[]"
@@ -2806,6 +2885,106 @@ export default function Register() {
               </Col>
             </Row>
 
+            {/* Company Information - Only for Admin */}
+            {userRole === "admin" && (
+              <>
+                <div style={{ marginTop: 24, marginBottom: 16 }}>
+                  <Text strong style={{ fontSize: 16, color: "#0066FF" }}>
+                    Company Information
+                  </Text>
+                </div>
+
+                <Row gutter={[16, 0]}>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Company Name"
+                      name="companyName"
+                      rules={[
+                        {
+                          required: true,
+                          message: "Please enter company name!",
+                        },
+                      ]}
+                    >
+                      <Input
+                        prefix={<BankOutlined style={{ color: "#bfbfbf" }} />}
+                        placeholder="Enter company name"
+                      />
+                    </Form.Item>
+                  </Col>
+
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Company Email"
+                      name="companyEmail"
+                      rules={[
+                        {
+                          required: true,
+                          message: "Please enter company email!",
+                        },
+                        {
+                          type: "email",
+                          message: "Please enter a valid email!",
+                        },
+                      ]}
+                    >
+                      <Input
+                        prefix={<MailOutlined style={{ color: "#bfbfbf" }} />}
+                        placeholder="company@example.com"
+                      />
+                    </Form.Item>
+                  </Col>
+                </Row>
+
+                <Row gutter={[16, 0]}>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Company Address"
+                      name="companyAddress"
+                      rules={[
+                        {
+                          required: true,
+                          message: "Please enter company address!",
+                        },
+                      ]}
+                    >
+                      <Input.TextArea
+                        placeholder="Enter complete address"
+                        rows={1}
+                      />
+                    </Form.Item>
+                  </Col>
+
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Time Zone"
+                      name="timezone"
+                      rules={[
+                        {
+                          required: true,
+                          message: "Please select timezone!",
+                        },
+                      ]}
+                    >
+                      <Select
+                        placeholder="Select timezone"
+                        showSearch
+                        suffixIcon={
+                          <GlobalOutlined style={{ color: "#bfbfbf" }} />
+                        }
+                      >
+                        {timezones.map((tz) => (
+                          <Option key={tz} value={tz}>
+                            {tz}
+                          </Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </>
+            )}
+
             {/* Employee Specific Fields */}
             {userRole === "employee" && (
               <>
@@ -2822,8 +3001,8 @@ export default function Register() {
                       ]}
                     >
                       <Radio.Group style={{ width: "100%" }}>
-                        <Radio value="fulltime">Full Time</Radio>
-                        <Radio value="parttime">Part Time</Radio>
+                        <Radio value="fulltime">Remote</Radio>
+                        <Radio value="parttime">Onsite</Radio>
                       </Radio.Group>
                     </Form.Item>
                   </Col>
@@ -2929,6 +3108,148 @@ export default function Register() {
                           min={1}
                           max={168}
                         />
+                      </Form.Item>
+                    </Col>
+                  )}
+                </Row>
+
+                {/* Employee Pay Information */}
+                <div style={{ marginTop: 24, marginBottom: 16 }}>
+                  <Text strong style={{ fontSize: 16, color: "#0066FF" }}>
+                    Compensation Details
+                  </Text>
+                </div>
+
+                <Row gutter={[16, 0]}>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Employment Duration"
+                      name="employmentDuration"
+                      rules={[
+                        {
+                          required: true,
+                          message: "Please select employment duration!",
+                        },
+                      ]}
+                    >
+                      <Select
+                        placeholder="Select duration"
+                        suffixIcon={
+                          <CalendarOutlined style={{ color: "#bfbfbf" }} />
+                        }
+                      >
+                        <Option value="internship">Internship</Option>
+                        <Option value="fulltime">Full Time</Option>
+                        <Option value="contract">Contract</Option>
+                        <Option value="temporary">Temporary</Option>
+                      </Select>
+                    </Form.Item>
+                  </Col>
+
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Currency"
+                      name="currency"
+                      rules={[
+                        {
+                          required: true,
+                          message: "Please select currency!",
+                        },
+                      ]}
+                    >
+                      <Select
+                        placeholder="Select currency"
+                        onChange={(value) => setSelectedCurrency(value)}
+                        // suffixIcon={
+                        //   <DollarOutlined style={{ color: "#bfbfbf" }} />
+                        // }
+                      >
+                        {currencies.map((curr) => (
+                          <Option key={curr.symbol} value={curr.symbol}>
+                            {curr.symbol} - {curr.name}
+                          </Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+                  </Col>
+                </Row>
+
+                <Row gutter={[16, 0]}>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Pay Type"
+                      name="payType"
+                      rules={[
+                        {
+                          required: true,
+                          message: "Please select pay type!",
+                        },
+                      ]}
+                    >
+                      <Select
+                        placeholder="Select pay type"
+                        onChange={(value) =>
+                          setShowCustomPayType(value === "custom")
+                        }
+                        // suffixIcon={
+                        //   <DollarOutlined style={{ color: "#bfbfbf" }} />
+                        // }
+                      >
+                        {payTypes.map((type) => (
+                          <Option key={type} value={type}>
+                            {type}
+                          </Option>
+                        ))}
+                        <Option value="custom">Custom Pay Type</Option>
+                      </Select>
+                    </Form.Item>
+                  </Col>
+
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Pay Amount"
+                      name="payAmount"
+                      rules={[
+                        {
+                          required: true,
+                          message: "Please enter pay amount!",
+                        },
+                        {
+                          type: "number",
+                          min: 0,
+                          message: "Amount must be positive!",
+                        },
+                      ]}
+                    >
+                      <InputNumber
+                        placeholder="Enter amount"
+                        style={{ width: "100%" }}
+                        min={0}
+                        addonBefore={selectedCurrency}
+                        formatter={(value) =>
+                          `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        }
+                        // parser={(value) => {
+                        //   const parsed = value!.replace(/\$\s?|(,*)/g, "");
+                        //   return parsed === "" ? 0 : Number(parsed);
+                        // }}
+                      />
+                    </Form.Item>
+                  </Col>
+
+                  {showCustomPayType && (
+                    <Col xs={24} md={24}>
+                      <Form.Item
+                        label="Custom Pay Type"
+                        name="customPayType"
+                        rules={[
+                          {
+                            required: true,
+                            message: "Please enter custom pay type!",
+                          },
+                        ]}
+                      >
+                        <Input placeholder="e.g., Bi-weekly, Annual" />
                       </Form.Item>
                     </Col>
                   )}

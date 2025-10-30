@@ -316,7 +316,6 @@ const ShiftTypes: React.FC = () => {
             <Row gutter={12}>
               <Col span={12}>
                 <Button
-                  type="primary"
                   block
                   size="large"
                   icon={<CheckCircleOutlined />}

@@ -7,6 +7,7 @@ import {
   FileTextOutlined,
   SettingOutlined,
   CloseOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/router";
 import type { MenuProps } from "antd";
@@ -78,10 +79,26 @@ const Sidebar: React.FC<SidebarProps> = ({
       key: "settings",
       icon: <SettingOutlined />,
       label: "Settings",
-      onClick: () => {
-        router.push("/settings");
-        if (isMobile) onClose();
-      },
+      children: [
+        {
+          key: "profile",
+          label: "Profile",
+          icon: <UserOutlined />,
+          onClick: () => {
+            router.push("/settings");
+            if (isMobile) onClose();
+          },
+        },
+        {
+          key: "account",
+          label: "Account",
+          icon: <SettingOutlined />,
+          onClick: () => {
+            router.push("/settings/account");
+            if (isMobile) onClose();
+          },
+        },
+      ],
     },
   ];
 
@@ -94,7 +111,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (path.includes("/attendance")) return ["attendance"];
     if (path.includes("/shifts")) return ["shifts"];
     if (path.includes("/reports")) return ["reports"];
-    if (path.includes("/settings")) return ["settings"];
+    if (path.includes("/settings/account")) return ["account"]; // check account first
+    if (path === "/settings") return ["profile"]; // then profile
     return ["dashboard"];
   };
 
@@ -142,6 +160,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <Menu
             mode="inline"
             selectedKeys={getSelectedKey()}
+            defaultOpenKeys={["settings"]}
             items={menuItems}
             style={{
               border: "none",
@@ -151,6 +170,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </Drawer>
 
         <style jsx global>{`
+          /* Mobile Drawer Styles */
           .ant-drawer .ant-menu-item {
             height: 46px;
             line-height: 46px;
@@ -179,6 +199,136 @@ const Sidebar: React.FC<SidebarProps> = ({
           .ant-drawer .ant-menu-item span {
             font-size: 14px;
             font-weight: 500;
+          }
+
+          /* Desktop/Tablet Sidebar Styles */
+          .custom-sidebar .ant-layout-sider-children {
+            display: flex;
+            flex-direction: column;
+          }
+
+          .custom-sidebar .ant-menu {
+            flex: 1;
+          }
+
+          .custom-sidebar .ant-menu-item {
+            height: 46px;
+            line-height: 46px;
+            margin: 6px 10px !important;
+            border-radius: 8px !important;
+            width: auto !important;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+          }
+
+          .custom-sidebar .ant-menu-item-selected {
+            background-color: #e6f4ff !important;
+            color: #0066ff !important;
+          }
+
+          .custom-sidebar .ant-menu-item-selected .anticon {
+            color: #0066ff !important;
+          }
+
+          .custom-sidebar .ant-menu-item:hover {
+            background-color: #f5f5f5 !important;
+          }
+
+          .custom-sidebar .ant-menu-item .anticon {
+            font-size: 18px;
+            color: #595959;
+          }
+
+          .custom-sidebar .ant-menu-item-selected .anticon {
+            color: #0066ff;
+          }
+
+          .custom-sidebar .ant-menu-item span {
+            font-size: 14px;
+            font-weight: 500;
+          }
+
+          /* Fix Settings submenu alignment */
+          .custom-sidebar .ant-menu-submenu {
+            height: 46px;
+            line-height: 46px;
+            margin: 6px 10px !important;
+            border-radius: 8px !important;
+          }
+
+          .custom-sidebar .ant-menu-submenu-title {
+            height: 46px !important;
+            line-height: 46px !important;
+            margin: 0 !important;
+            padding-left: 16px !important;
+            border-radius: 8px !important;
+          }
+
+          .custom-sidebar .ant-menu-submenu-title:hover {
+            background-color: #f5f5f5 !important;
+          }
+
+          .custom-sidebar .ant-menu-submenu-title .anticon {
+            font-size: 18px;
+            color: #595959;
+          }
+
+          /* Submenu Items (Profile, Account) */
+          .custom-sidebar .ant-menu-sub {
+            padding: 0 !important;
+            margin: 0 !important;
+            background: transparent !important;
+          }
+
+          .custom-sidebar .ant-menu-sub .ant-menu-item {
+            height: 40px !important;
+            line-height: 40px !important;
+            padding-left: 48px !important;
+            border-radius: 6px !important;
+            margin: 2px 10px !important;
+            transition: 0.2s;
+          }
+
+          .custom-sidebar .ant-menu-sub .ant-menu-item:hover {
+            background: #f5f5f5 !important;
+          }
+
+          .custom-sidebar .ant-menu-sub .ant-menu-item-selected {
+            background-color: #e6f4ff !important;
+            color: #0066ff !important;
+          }
+
+          .custom-sidebar .ant-menu-sub .ant-menu-item .anticon {
+            color: #595959 !important;
+          }
+
+          .custom-sidebar .ant-menu-sub .ant-menu-item-selected .anticon {
+            color: #0066ff !important;
+          }
+
+          /* Collapsed Sidebar Styles */
+          .custom-sidebar .ant-layout-sider-collapsed .ant-menu-item {
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+          }
+
+          /* Tablet responsive */
+          @media (max-width: 992px) {
+            .custom-sidebar {
+              left: 12px;
+              top: 98px;
+              bottom: 12px;
+            }
+          }
+
+          /* Smooth transitions */
+          .custom-sidebar .ant-layout-sider {
+            transition: all 0.2s ease-in-out;
+          }
+
+          .custom-sidebar .ant-menu-item {
+            transition: all 0.2s ease-in-out;
           }
         `}</style>
       </>

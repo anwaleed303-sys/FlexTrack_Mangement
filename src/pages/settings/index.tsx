@@ -1,10 +1,10 @@
 // src/pages/settings/index.tsx
 import Head from "next/head";
 import MainLayout from "../../components/Layout/MainLayout";
-// import Profile from "../../components/Settings/Profile";
-// import TwoFA from "../../components/Settings/TwoFA";
-// import Webhooks from "../../components/Settings/Webhooks";
-import APIKeys from "../../components/Settings/APIKeys";
+import Profile from "../../components/Settings/Profile";
+import { Typography } from "antd";
+
+const { Title } = Typography;
 
 export default function Settings() {
   return (
@@ -12,14 +12,23 @@ export default function Settings() {
       <Head>
         <title>Settings | FlexTrack</title>
         <meta name="description" content="Manage your settings" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
       <MainLayout>
-        <h1>jjj</h1>
-        {/* <Profile />
-        <TwoFA />
-        <Webhooks />
-        <APIKeys /> */}
+        <div style={{ padding: "0 16px" }}>
+          <Title
+            level={2}
+            style={{
+              marginBottom: "24px",
+              fontSize: "28px",
+              fontWeight: 600,
+            }}
+          >
+            Profile View
+          </Title>
+          <Profile />
+        </div>
       </MainLayout>
     </>
   );
