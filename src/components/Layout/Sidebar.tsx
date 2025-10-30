@@ -8,6 +8,7 @@ import {
   SettingOutlined,
   CloseOutlined,
   UserOutlined,
+  AppstoreOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/router";
 import type { MenuProps } from "antd";
@@ -41,7 +42,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       key: "overview",
-      icon: <CalendarOutlined />,
+      icon: <AppstoreOutlined />,
       label: "Overview",
       onClick: () => {
         router.push("/overview");
@@ -77,7 +78,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       key: "settings",
-      icon: <SettingOutlined />,
+      icon: (
+        <SettingOutlined
+          style={{
+            marginLeft: "7px",
+          }}
+        />
+      ),
       label: "Settings",
       children: [
         {
@@ -89,15 +96,15 @@ const Sidebar: React.FC<SidebarProps> = ({
             if (isMobile) onClose();
           },
         },
-        {
-          key: "account",
-          label: "Account",
-          icon: <SettingOutlined />,
-          onClick: () => {
-            router.push("/settings/account");
-            if (isMobile) onClose();
-          },
-        },
+        // {
+        //   key: "account",
+        //   label: "Account",
+        //   icon: <SettingOutlined />,
+        //   onClick: () => {
+        //     router.push("/settings/account");
+        //     if (isMobile) onClose();
+        //   },
+        // },
       ],
     },
   ];

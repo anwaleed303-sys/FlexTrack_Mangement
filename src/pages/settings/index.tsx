@@ -25,7 +25,7 @@ export default function Settings() {
               fontWeight: 600,
             }}
           >
-            Profile View
+            Profile Details
           </Title>
           <Profile />
         </div>
