@@ -589,6 +589,7 @@ const Profile: React.FC = () => {
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
+                    paddingLeft: "100px",
                   }}
                 >
                   <Title level={5} style={{ marginBottom: 0 }}>
@@ -671,10 +672,11 @@ const Profile: React.FC = () => {
                     justifyContent: "space-between",
                     alignItems: "center",
                     marginTop: "16px",
+                    paddingLeft: "100px",
                   }}
                 >
                   <Title level={5} style={{ marginBottom: 0 }}>
-                    Alerts
+                    Companay Alerts
                   </Title>
 
                   <Switch
