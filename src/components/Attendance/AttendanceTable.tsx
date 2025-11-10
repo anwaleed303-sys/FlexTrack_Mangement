@@ -1,1032 +1,3 @@
-// // import React, { useState, useEffect } from "react";
-// // import {
-// //   Card,
-// //   Button,
-// //   Space,
-// //   Typography,
-// //   Row,
-// //   Col,
-// //   Modal,
-// //   DatePicker,
-// //   Select,
-// //   Input,
-// //   message,
-// //   Tag,
-// //   Table,
-// // } from "antd";
-// // import {
-// //   LineChart,
-// //   Line,
-// //   XAxis,
-// //   YAxis,
-// //   CartesianGrid,
-// //   Tooltip,
-// //   ResponsiveContainer,
-// //   PieChart,
-// //   Pie,
-// //   Cell,
-// // } from "recharts";
-// // import type { Dayjs } from "dayjs";
-
-// // const { Title, Text } = Typography;
-// // const { Option } = Select;
-// // const { RangePicker } = DatePicker;
-// // const { TextArea } = Input;
-
-// // interface UserData {
-// //   name: string;
-// //   userRole: string;
-// //   specificRole: string;
-// //   shift?: string;
-// //   customShift?: string;
-// // }
-
-// // interface AttendanceRecord {
-// //   id: number;
-// //   name: string;
-// //   date: string;
-// //   checkIn: string;
-// //   checkOut: string;
-// //   workingTime: string;
-// //   status: "present" | "absent";
-// // }
-
-// // interface LeaveRequest {
-// //   id: number;
-// //   name: string;
-// //   dates: any;
-// //   leaveType: string;
-// //   reason: string;
-// //   status: string;
-// //   date: string;
-// // }
-
-// // const COLORS = {
-// //   Approved: "#00D4B1",
-// //   Pending: "#FFB020",
-// //   Rejected: "#FF4D4F",
-// // };
-
-// // export default function Dashboard() {
-// //   const [userData, setUserData] = useState<UserData>({
-// //     name: "User",
-// //     userRole: "employee",
-// //     specificRole: "Employee",
-// //   });
-
-// //   const [checkInTime, setCheckInTime] = useState<string | null>(null);
-// //   const [isLeaveModalVisible, setIsLeaveModalVisible] = useState(false);
-// //   const [isLeaveDetailsModalVisible, setIsLeaveDetailsModalVisible] =
-// //     useState(false);
-
-// //   // Leave form state
-// //   const [leaveDates, setLeaveDates] = useState<
-// //     [Dayjs | null, Dayjs | null] | null
-// //   >(null);
-// //   const [leaveType, setLeaveType] = useState("");
-// //   const [leaveReason, setLeaveReason] = useState("");
-
-// //   // Real-time attendance data
-// //   const [weeklyAttendance, setWeeklyAttendance] = useState([
-// //     { day: "Mon", present: 0, absent: 0 },
-// //     { day: "Tue", present: 0, absent: 0 },
-// //     { day: "Wed", present: 0, absent: 0 },
-// //     { day: "Thu", present: 0, absent: 0 },
-// //     { day: "Fri", present: 0, absent: 0 },
-// //     { day: "Sat", present: 0, absent: 0 },
-// //     { day: "Sun", present: 0, absent: 0 },
-// //   ]);
-
-// //   // My attendance data with actual and target hours
-// //   const [myAttendance, setMyAttendance] = useState<any[]>([]);
-// //   const [attendanceView, setAttendanceView] = useState<
-// //     "week" | "month" | "custom"
-// //   >("week");
-// //   const [selectedDays, setSelectedDays] = useState<number>(7);
-
-// //   const [recentLeaves, setRecentLeaves] = useState<LeaveRequest[]>([]);
-// //   const [leaveChartData, setLeaveChartData] = useState<any[]>([]);
-
-// //   const upcomingShifts = [
-// //     { type: "Annual Leave", time: "09:00 - 17:AM", approved: true },
-// //     { type: "Sick Leave", time: "3 days: 7 day", approved: true },
-// //   ];
-
-// //   useEffect(() => {
-// //     loadData();
-// //   }, []);
-
-// //   useEffect(() => {
-// //     if (userData.name) {
-// //       loadMyAttendance(userData.name);
-// //     }
-// //   }, [attendanceView, selectedDays, userData.name]);
-
-// //   const loadData = () => {
-// //     // Load logged in user
-// //     const loggedInUserStr = localStorage.getItem("loggedInUser");
-
-// //     if (loggedInUserStr) {
-// //       const currentUser = JSON.parse(loggedInUserStr);
-// //       setUserData({
-// //         name: currentUser.name || "User",
-// //         userRole: currentUser.userRole || "employee",
-// //         specificRole: currentUser.specificRole || "Employee",
-// //         shift: currentUser.shift,
-// //         customShift: currentUser.customShift,
-// //       });
-
-// //       // Load attendance data
-// //       loadWeeklyAttendance();
-// //       loadMyAttendance(currentUser.name);
-// //       loadMyLeaveRequests(currentUser.name);
-// //     }
-
-// //     // Load today's check-in data
-// //     const savedCheckIn = localStorage.getItem("checkInData");
-// //     if (savedCheckIn) {
-// //       const checkInData = JSON.parse(savedCheckIn);
-// //       const checkInDate = new Date(checkInData.checkInTime);
-// //       const today = new Date();
-// //       if (checkInDate.toDateString() === today.toDateString()) {
-// //         setCheckInTime(checkInData.checkInTime);
-// //       }
-// //     }
-// //   };
-
-// //   const loadWeeklyAttendance = () => {
-// //     const records: AttendanceRecord[] = JSON.parse(
-// //       localStorage.getItem("attendanceRecords") || "[]"
-// //     );
-
-// //     // Get dates for the current week (last 7 days)
-// //     const today = new Date();
-// //     const weekData = [
-// //       { day: "Mon", present: 0, absent: 0 },
-// //       { day: "Tue", present: 0, absent: 0 },
-// //       { day: "Wed", present: 0, absent: 0 },
-// //       { day: "Thu", present: 0, absent: 0 },
-// //       { day: "Fri", present: 0, absent: 0 },
-// //       { day: "Sat", present: 0, absent: 0 },
-// //       { day: "Sun", present: 0, absent: 0 },
-// //     ];
-
-// //     // Calculate for last 7 days
-// //     for (let i = 6; i >= 0; i--) {
-// //       const date = new Date(today);
-// //       date.setDate(date.getDate() - i);
-// //       const dateStr = date.toLocaleDateString("en-US");
-// //       const dayIndex = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
-
-// //       // Adjust index to match our array (Monday = 0)
-// //       const adjustedIndex = dayIndex === 0 ? 6 : dayIndex - 1;
-
-// //       const dayRecords = records.filter((record) => record.date === dateStr);
-
-// //       const presentCount = dayRecords.filter(
-// //         (record) => record.status === "present"
-// //       ).length;
-// //       const absentCount = dayRecords.filter(
-// //         (record) => record.status === "absent"
-// //       ).length;
-
-// //       weekData[adjustedIndex].present += presentCount;
-// //       weekData[adjustedIndex].absent += absentCount;
-// //     }
-
-// //     setWeeklyAttendance(weekData);
-// //   };
-
-// //   const loadMyAttendance = (userName: string) => {
-// //     const records: AttendanceRecord[] = JSON.parse(
-// //       localStorage.getItem("attendanceRecords") || "[]"
-// //     );
-
-// //     const today = new Date();
-// //     const attendanceData = [];
-// //     const targetHours = 8;
-
-// //     let daysToShow = selectedDays;
-// //     if (attendanceView === "week") {
-// //       daysToShow = 7;
-// //     } else if (attendanceView === "month") {
-// //       daysToShow = 30;
-// //     }
-
-// //     // Load data for the selected number of days
-// //     for (let i = daysToShow - 1; i >= 0; i--) {
-// //       const date = new Date(today);
-// //       date.setDate(date.getDate() - i);
-// //       const dateStr = date.toLocaleDateString("en-US");
-// //       const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
-// //       const dayLabel =
-// //         attendanceView === "month" ? date.getDate().toString() : dayName;
-
-// //       const userRecord = records.find(
-// //         (record) =>
-// //           record.name === userName &&
-// //           record.date === dateStr &&
-// //           record.status === "present"
-// //       );
-
-// //       let actualHours = 0;
-// //       if (
-// //         userRecord &&
-// //         userRecord.workingTime &&
-// //         userRecord.workingTime !== "-"
-// //       ) {
-// //         const match = userRecord.workingTime.match(/(\d+\.?\d*)h/);
-// //         if (match) {
-// //           actualHours = parseFloat(match[1]);
-// //         }
-// //       }
-
-// //       attendanceData.push({
-// //         day: dayLabel,
-// //         actualHours: actualHours,
-// //         targetHours: targetHours,
-// //         date: date,
-// //         fullDate: dateStr,
-// //       });
-// //     }
-
-// //     setMyAttendance(attendanceData);
-// //   };
-
-// //   const loadMyLeaveRequests = (userName: string) => {
-// //     const leaves: LeaveRequest[] = JSON.parse(
-// //       localStorage.getItem("leaveRequests") || "[]"
-// //     );
-
-// //     const userLeaves = leaves.filter((leave) => leave.name === userName);
-// //     setRecentLeaves(userLeaves);
-
-// //     // Prepare chart data
-// //     const statusCounts = {
-// //       Approved: 0,
-// //       Pending: 0,
-// //       Rejected: 0,
-// //     };
-
-// //     userLeaves.forEach((leave) => {
-// //       if (leave.status in statusCounts) {
-// //         statusCounts[leave.status as keyof typeof statusCounts]++;
-// //       }
-// //     });
-
-// //     // Calculate total days and percentages
-// //     let totalDays = 0;
-// //     userLeaves.forEach((leave) => {
-// //       if (leave.dates && Array.isArray(leave.dates)) {
-// //         const startDate = new Date(leave.dates[0]);
-// //         const endDate = new Date(leave.dates[1]);
-// //         const days =
-// //           Math.ceil(
-// //             (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-// //           ) + 1;
-// //         totalDays += days;
-// //       }
-// //     });
-
-// //     const chartData = Object.entries(statusCounts)
-// //       .filter(([_, count]) => count > 0)
-// //       .map(([status, count]) => ({
-// //         name: status,
-// //         value: count,
-// //         percentage:
-// //           totalDays > 0 ? Math.round((count / userLeaves.length) * 100) : 0,
-// //       }));
-
-// //     setLeaveChartData(chartData);
-// //   };
-
-// //   const handleLeaveRequest = () => {
-// //     setIsLeaveModalVisible(true);
-// //   };
-
-// //   const handleLeaveSubmit = () => {
-// //     if (!leaveDates || !leaveType || !leaveReason) {
-// //       message.error("Please fill all fields!");
-// //       return;
-// //     }
-
-// //     const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
-// //     const newLeave: LeaveRequest = {
-// //       id: Date.now(),
-// //       name: userData.name,
-// //       dates: leaveDates,
-// //       leaveType,
-// //       reason: leaveReason,
-// //       status: "Pending",
-// //       date: new Date().toISOString(),
-// //     };
-// //     leaves.push(newLeave);
-// //     localStorage.setItem("leaveRequests", JSON.stringify(leaves));
-
-// //     message.success("Leave request submitted successfully!");
-// //     setIsLeaveModalVisible(false);
-// //     setLeaveDates(null);
-// //     setLeaveType("");
-// //     setLeaveReason("");
-
-// //     // Reload leave requests and force refresh
-// //     setTimeout(() => {
-// //       loadMyLeaveRequests(userData.name);
-// //       // Force component refresh
-// //       window.location.reload();
-// //     }, 500);
-// //   };
-
-// //   const getShiftDisplay = () => {
-// //     if (userData.customShift) {
-// //       return userData.customShift;
-// //     }
-
-// //     if (userData.shift) {
-// //       const shiftMap: any = {
-// //         morning: "Morning Shift (09:00 - 17:00)",
-// //         afternoon: "Afternoon Shift (14:00 - 22:00)",
-// //         evening: "Evening Shift (22:00 - 06:00)",
-// //       };
-// //       return shiftMap[userData.shift] || "Not Set";
-// //     }
-
-// //     return "Not Set";
-// //   };
-
-// //   const getTomorrowDate = () => {
-// //     const tomorrow = new Date();
-// //     tomorrow.setDate(tomorrow.getDate() + 1);
-// //     return tomorrow.toLocaleDateString("en-US", { weekday: "long" });
-// //   };
-
-// //   const leaveColumns = [
-// //     {
-// //       title: "Leave Type",
-// //       dataIndex: "leaveType",
-// //       key: "leaveType",
-// //       render: (type: string) => {
-// //         const typeMap: any = {
-// //           annual: "Annual Leave",
-// //           sick: "Sick Leave",
-// //           casual: "Casual Leave",
-// //           emergency: "Emergency Leave",
-// //         };
-// //         return typeMap[type] || type;
-// //       },
-// //     },
-// //     {
-// //       title: "Duration",
-// //       dataIndex: "dates",
-// //       key: "dates",
-// //       render: (dates: any) => {
-// //         if (dates && Array.isArray(dates)) {
-// //           const startDate = new Date(dates[0]);
-// //           const endDate = new Date(dates[1]);
-// //           const days =
-// //             Math.ceil(
-// //               (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-// //             ) + 1;
-// //           return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()} (${days} ${days === 1 ? "day" : "days"})`;
-// //         }
-// //         return "N/A";
-// //       },
-// //     },
-// //     {
-// //       title: "Reason",
-// //       dataIndex: "reason",
-// //       key: "reason",
-// //     },
-// //     {
-// //       title: "Status",
-// //       dataIndex: "status",
-// //       key: "status",
-// //       render: (status: string) => {
-// //         const colorMap: any = {
-// //           Approved: "green",
-// //           Pending: "orange",
-// //           Rejected: "red",
-// //         };
-// //         return <Tag color={colorMap[status]}>{status}</Tag>;
-// //       },
-// //     },
-// //     {
-// //       title: "Submitted On",
-// //       dataIndex: "date",
-// //       key: "date",
-// //       render: (date: string) => new Date(date).toLocaleDateString(),
-// //     },
-// //   ];
-
-// //   const CustomLabel = ({
-// //     cx,
-// //     cy,
-// //     midAngle,
-// //     innerRadius,
-// //     outerRadius,
-// //     percent,
-// //   }: any) => {
-// //     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-// //     const x = cx + radius * Math.cos((-midAngle * Math.PI) / 180);
-// //     const y = cy + radius * Math.sin((-midAngle * Math.PI) / 180);
-
-// //     return (
-// //       <text
-// //         x={x}
-// //         y={y}
-// //         fill="white"
-// //         textAnchor={x > cx ? "start" : "end"}
-// //         dominantBaseline="central"
-// //         style={{ fontSize: "14px", fontWeight: "bold" }}
-// //       >
-// //         {`${(percent * 100).toFixed(0)}%`}
-// //       </text>
-// //     );
-// //   };
-
-// //   const CustomTooltip = ({ active, payload }: any) => {
-// //     if (active && payload && payload.length) {
-// //       return (
-// //         <div
-// //           style={{
-// //             background: "white",
-// //             padding: "10px",
-// //             border: "1px solid #ccc",
-// //             borderRadius: "4px",
-// //             boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-// //           }}
-// //         >
-// //           <p style={{ margin: 0, fontWeight: "bold", fontSize: "12px" }}>
-// //             {payload[0].payload.fullDate}
-// //           </p>
-// //           <p
-// //             style={{ margin: "4px 0 0 0", color: "#00D4B1", fontSize: "12px" }}
-// //           >
-// //             Actual: {payload[0].value}h
-// //           </p>
-// //           <p
-// //             style={{ margin: "4px 0 0 0", color: "#FF4D4F", fontSize: "12px" }}
-// //           >
-// //             Target: {payload[1].value}h
-// //           </p>
-// //         </div>
-// //       );
-// //     }
-// //     return null;
-// //   };
-
-// //   return (
-// //     <div style={{ padding: "20px", background: "#f0f2f5", minHeight: "100vh" }}>
-// //       <Row gutter={[16, 16]}>
-// //         <Col xs={24} lg={12}>
-// //           <Card title="This Week's Attendance" style={{ borderRadius: "12px" }}>
-// //             <div style={{ display: "flex", gap: "12px", marginBottom: "12px" }}>
-// //               <span
-// //                 style={{ display: "flex", alignItems: "center", gap: "4px" }}
-// //               >
-// //                 <div
-// //                   style={{
-// //                     width: "12px",
-// //                     height: "12px",
-// //                     background: "#00D4B1",
-// //                     borderRadius: "2px",
-// //                   }}
-// //                 ></div>
-// //                 <Text style={{ fontSize: "12px" }}>present</Text>
-// //               </span>
-// //               <span
-// //                 style={{ display: "flex", alignItems: "center", gap: "4px" }}
-// //               >
-// //                 <div
-// //                   style={{
-// //                     width: "12px",
-// //                     height: "12px",
-// //                     background: "#ff7875",
-// //                     borderRadius: "2px",
-// //                   }}
-// //                 ></div>
-// //                 <Text style={{ fontSize: "12px" }}>absent</Text>
-// //               </span>
-// //             </div>
-// //             <ResponsiveContainer width="100%" height={200}>
-// //               <LineChart data={weeklyAttendance}>
-// //                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-// //                 <XAxis dataKey="day" style={{ fontSize: "12px" }} />
-// //                 <YAxis style={{ fontSize: "12px" }} />
-// //                 <Tooltip />
-// //                 <Line
-// //                   type="monotone"
-// //                   dataKey="present"
-// //                   stroke="#00D4B1"
-// //                   strokeWidth={2}
-// //                   dot={{ r: 4 }}
-// //                 />
-// //                 <Line
-// //                   type="monotone"
-// //                   dataKey="absent"
-// //                   stroke="#ff7875"
-// //                   strokeWidth={2}
-// //                   dot={{ r: 4 }}
-// //                 />
-// //               </LineChart>
-// //             </ResponsiveContainer>
-// //           </Card>
-// //         </Col>
-
-// //         <Col xs={24} lg={12}>
-// //           <Card title="Upcoming Shifts" style={{ borderRadius: "12px" }}>
-// //             <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-// //               {upcomingShifts.map((shift, index) => (
-// //                 <div key={index}>
-// //                   <Text strong>{shift.type}</Text>
-// //                   <Text
-// //                     type="secondary"
-// //                     style={{ display: "block", fontSize: "12px" }}
-// //                   >
-// //                     {shift.time} - {shift.approved ? "Approved" : "Pending"}
-// //                   </Text>
-// //                 </div>
-// //               ))}
-// //             </Space>
-// //           </Card>
-// //         </Col>
-// //         <Col xs={24} lg={12}>
-// //           <Card title="Recent Leave Requests" style={{ borderRadius: "12px" }}>
-// //             {leaveChartData.length > 0 ? (
-// //               <div
-// //                 style={{ display: "flex", alignItems: "center", gap: "24px" }}
-// //               >
-// //                 <ResponsiveContainer width={140} height={140}>
-// //                   <PieChart>
-// //                     <Pie
-// //                       data={leaveChartData}
-// //                       cx="50%"
-// //                       cy="50%"
-// //                       innerRadius={40}
-// //                       outerRadius={70}
-// //                       paddingAngle={2}
-// //                       dataKey="value"
-// //                       label={CustomLabel}
-// //                       labelLine={false}
-// //                     >
-// //                       {leaveChartData.map((entry, index) => (
-// //                         <Cell
-// //                           key={`cell-${index}`}
-// //                           fill={COLORS[entry.name as keyof typeof COLORS]}
-// //                         />
-// //                       ))}
-// //                     </Pie>
-// //                   </PieChart>
-// //                 </ResponsiveContainer>
-// //                 <div style={{ flex: 1 }}>
-// //                   {leaveChartData.map((entry, index) => {
-// //                     const totalDays = recentLeaves
-// //                       .filter((leave) => leave.status === entry.name)
-// //                       .reduce((sum, leave) => {
-// //                         if (leave.dates && Array.isArray(leave.dates)) {
-// //                           const startDate = new Date(leave.dates[0]);
-// //                           const endDate = new Date(leave.dates[1]);
-// //                           return (
-// //                             sum +
-// //                             Math.ceil(
-// //                               (endDate.getTime() - startDate.getTime()) /
-// //                                 (1000 * 60 * 60 * 24)
-// //                             ) +
-// //                             1
-// //                           );
-// //                         }
-// //                         return sum;
-// //                       }, 0);
-
-// //                     return (
-// //                       <div key={index} style={{ marginBottom: "12px" }}>
-// //                         <div
-// //                           style={{
-// //                             display: "flex",
-// //                             alignItems: "center",
-// //                             gap: "8px",
-// //                             marginBottom: "4px",
-// //                           }}
-// //                         >
-// //                           <div
-// //                             style={{
-// //                               width: "12px",
-// //                               height: "12px",
-// //                               background:
-// //                                 COLORS[entry.name as keyof typeof COLORS],
-// //                               borderRadius: "2px",
-// //                             }}
-// //                           ></div>
-// //                           <Text strong style={{ fontSize: "14px" }}>
-// //                             {totalDays} day{totalDays !== 1 ? "s" : ""} -{" "}
-// //                             {entry.name}
-// //                           </Text>
-// //                         </div>
-// //                         <Text
-// //                           type="secondary"
-// //                           style={{ fontSize: "12px", marginLeft: "20px" }}
-// //                         >
-// //                           {entry.percentage}%
-// //                         </Text>
-// //                       </div>
-// //                     );
-// //                   })}
-// //                   <Text
-// //                     type="secondary"
-// //                     style={{
-// //                       fontSize: "11px",
-// //                       display: "block",
-// //                       marginTop: "8px",
-// //                       cursor: "pointer",
-// //                     }}
-// //                     onClick={() => setIsLeaveDetailsModalVisible(true)}
-// //                   >
-// //                     Click to view all leave requests
-// //                   </Text>
-// //                 </div>
-// //               </div>
-// //             ) : (
-// //               <Text type="secondary">No leave requests yet</Text>
-// //             )}
-// //           </Card>
-// //         </Col>
-// //         <Col xs={24} lg={12}>
-// //           <Card
-// //             title={
-// //               <div
-// //                 style={{
-// //                   display: "flex",
-// //                   justifyContent: "space-between",
-// //                   alignItems: "center",
-// //                   flexWrap: "wrap",
-// //                   gap: "8px",
-// //                 }}
-// //               >
-// //                 <span>My Attendance Snapshot</span>
-// //                 <div style={{ display: "flex", gap: "8px" }}>
-// //                   <Select
-// //                     value={attendanceView}
-// //                     onChange={(value) => {
-// //                       setAttendanceView(value);
-// //                       if (value === "week") setSelectedDays(7);
-// //                       else if (value === "month") setSelectedDays(30);
-// //                     }}
-// //                     style={{ width: 100 }}
-// //                     size="small"
-// //                   >
-// //                     <Option value="week">Week</Option>
-// //                     <Option value="month">Month</Option>
-// //                     <Option value="custom">Custom</Option>
-// //                   </Select>
-
-// //                   {attendanceView === "custom" && (
-// //                     <Select
-// //                       value={selectedDays}
-// //                       onChange={(value) => setSelectedDays(value)}
-// //                       style={{ width: 90 }}
-// //                       size="small"
-// //                       placeholder="Days"
-// //                     >
-// //                       <Option value={2}>2 Days</Option>
-// //                       <Option value={3}>3 Days</Option>
-// //                       <Option value={5}>5 Days</Option>
-// //                       <Option value={10}>10 Days</Option>
-// //                       <Option value={15}>15 Days</Option>
-// //                       <Option value={20}>20 Days</Option>
-// //                     </Select>
-// //                   )}
-// //                 </div>
-// //               </div>
-// //             }
-// //             style={{ borderRadius: "12px" }}
-// //             bodyStyle={{ padding: "16px" }}
-// //           >
-// //             {/* Responsive layout using Ant Grid */}
-// //             <Row gutter={[16, 16]} align="middle">
-// //               {/* Chart Section */}
-// //               <Col xs={24} md={16} lg={14}>
-// //                 <div style={{ width: "100%", height: "220px" }}>
-// //                   <ResponsiveContainer width="100%" height="100%">
-// //                     <LineChart data={myAttendance}>
-// //                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-// //                       <XAxis
-// //                         dataKey="day"
-// //                         style={{
-// //                           fontSize: attendanceView === "month" ? "9px" : "11px",
-// //                         }}
-// //                         interval={attendanceView === "month" ? 2 : 0}
-// //                         axisLine={true}
-// //                         tickLine={true}
-// //                       />
-// //                       <YAxis
-// //                         domain={[0, 10]}
-// //                         ticks={[0, 2, 4, 6, 8, 10]}
-// //                         style={{ fontSize: "11px" }}
-// //                       />
-// //                       <Tooltip content={<CustomTooltip />} />
-// //                       <Line
-// //                         type="monotone"
-// //                         dataKey="actualHours"
-// //                         stroke="#00D4B1"
-// //                         strokeWidth={2}
-// //                         dot={{ r: 3 }}
-// //                         name="Actual Hours"
-// //                       />
-// //                       <Line
-// //                         type="monotone"
-// //                         dataKey="targetHours"
-// //                         stroke="#FF4D4F"
-// //                         strokeWidth={2}
-// //                         dot={{ r: 3 }}
-// //                         name="Target Hours"
-// //                       />
-// //                     </LineChart>
-// //                   </ResponsiveContainer>
-// //                 </div>
-// //               </Col>
-
-// //               {/* Tomorrow Shift Section */}
-// //               <Col xs={24} md={8} lg={10}>
-// //                 <div
-// //                   style={{
-// //                     textAlign: "center",
-// //                     // padding: "12px",
-// //                     // background: "#fafafa",
-// //                     borderRadius: "8px",
-// //                   }}
-// //                 >
-// //                   <Text strong style={{ fontSize: "16px" }}>
-// //                     Tomorrow
-// //                   </Text>
-// //                   <br />
-// //                   <Text type="secondary" style={{ fontSize: "14px" }}>
-// //                     {getShiftDisplay()}
-// //                   </Text>
-// //                 </div>
-// //               </Col>
-// //             </Row>
-
-// //             {/* Last Check-in Section */}
-// //             <div
-// //               style={{
-// //                 marginTop: "20px",
-// //                 padding: "16px",
-// //                 background: "#f5f5f5",
-// //                 borderRadius: "8px",
-// //                 display: "flex",
-// //                 justifyContent: "space-between",
-// //                 alignItems: "center",
-// //                 flexWrap: "wrap",
-// //                 gap: "8px",
-// //               }}
-// //             >
-// //               <Text strong style={{ fontSize: "15px", color: "#333" }}>
-// //                 Last Check-in:
-// //               </Text>
-// //               <Text type="secondary" style={{ fontSize: "14px" }}>
-// //                 {checkInTime
-// //                   ? `Today, ${new Date(checkInTime).toLocaleTimeString(
-// //                       "en-US",
-// //                       {
-// //                         hour: "2-digit",
-// //                         minute: "2-digit",
-// //                         hour12: true,
-// //                       }
-// //                     )}`
-// //                   : "Not checked in yet"}
-// //               </Text>
-// //             </div>
-// //           </Card>
-// //         </Col>
-
-// //         <Col xs={24}>
-// //           <Card
-// //             title="Important Announcements"
-// //             style={{ borderRadius: "12px" }}
-// //           >
-// //             {(() => {
-// //               // 👇 ADD THIS CHECK FIRST
-// //               if (typeof window === "undefined") {
-// //                 return <Text type="secondary">Loading announcements...</Text>;
-// //               }
-
-// //               const announcements = JSON.parse(
-// //                 localStorage.getItem("companyAnnouncements") || "[]"
-// //               );
-
-// //               const handleDeleteAnnouncement = (announcementId: string) => {
-// //                 // Delete announcement
-// //                 const updatedAnnouncements = announcements.filter(
-// //                   (a: any) => a.id !== announcementId
-// //                 );
-// //                 localStorage.setItem(
-// //                   "companyAnnouncements",
-// //                   JSON.stringify(updatedAnnouncements)
-// //                 );
-
-// //                 // Delete related notification for this user
-// //                 const userNotifications: any[] = JSON.parse(
-// //                   localStorage.getItem(`notifications_${userData.name}`) || "[]"
-// //                 );
-
-// //                 const updatedNotifications = userNotifications.filter(
-// //                   (n: any) => {
-// //                     if (
-// //                       n.type === "company_leave" ||
-// //                       n.type === "company_announcement"
-// //                     ) {
-// //                       const notifDate = new Date(n.date).toDateString();
-// //                       const announceDate = announcements.find(
-// //                         (a: any) => a.id === announcementId
-// //                       );
-// //                       if (
-// //                         announceDate &&
-// //                         new Date(announceDate.date).toDateString() === notifDate
-// //                       ) {
-// //                         return false;
-// //                       }
-// //                     }
-// //                     return true;
-// //                   }
-// //                 );
-
-// //                 localStorage.setItem(
-// //                   `notifications_${userData.name}`,
-// //                   JSON.stringify(updatedNotifications)
-// //                 );
-
-// //                 message.success("Announcement deleted");
-// //                 window.location.reload();
-// //               };
-
-// //               if (announcements.length === 0) {
-// //                 return (
-// //                   <>
-// //                     <Text strong>No announcements at this time</Text>
-// //                     <Text
-// //                       type="secondary"
-// //                       style={{
-// //                         display: "block",
-// //                         fontSize: "12px",
-// //                         marginTop: "4px",
-// //                       }}
-// //                     >
-// //                       Check back later for updates
-// //                     </Text>
-// //                   </>
-// //                 );
-// //               }
-
-// //               return announcements.slice(0, 3).map((announcement: any) => (
-// //                 <div
-// //                   key={announcement.id}
-// //                   style={{
-// //                     marginBottom: "12px",
-// //                     paddingBottom: "12px",
-// //                     borderBottom: "1px solid #f0f0f0",
-// //                     position: "relative",
-// //                   }}
-// //                 >
-// //                   <Button
-// //                     type="text"
-// //                     danger
-// //                     size="small"
-// //                     // icon={<CloseOutlined />}
-// //                     onClick={() => handleDeleteAnnouncement(announcement.id)}
-// //                     style={{
-// //                       position: "absolute",
-// //                       right: "0",
-// //                       top: "0",
-// //                     }}
-// //                   />
-// //                   <Text
-// //                     strong
-// //                     style={{
-// //                       color: "#0066FF",
-// //                       display: "block",
-// //                       paddingRight: "30px",
-// //                     }}
-// //                   >
-// //                     {announcement.title}
-// //                   </Text>
-// //                   <Text
-// //                     type="secondary"
-// //                     style={{
-// //                       display: "block",
-// //                       fontSize: "12px",
-// //                       marginTop: "4px",
-// //                     }}
-// //                   >
-// //                     {announcement.message}
-// //                   </Text>
-// //                   <Text
-// //                     type="secondary"
-// //                     style={{
-// //                       display: "block",
-// //                       fontSize: "11px",
-// //                       marginTop: "4px",
-// //                       color: "#8c8c8c",
-// //                     }}
-// //                   >
-// //                     {new Date(announcement.date).toLocaleDateString()}
-// //                   </Text>
-// //                 </div>
-// //               ));
-// //             })()}
-// //           </Card>
-// //         </Col>
-// //       </Row>
-
-// //       {/* Submit Leave Request Modal */}
-// //       <Modal
-// //         title="Request Leave"
-// //         open={isLeaveModalVisible}
-// //         onCancel={() => {
-// //           setIsLeaveModalVisible(false);
-// //           setLeaveDates(null);
-// //           setLeaveType("");
-// //           setLeaveReason("");
-// //         }}
-// //         onOk={handleLeaveSubmit}
-// //         okText="Submit Request"
-// //         okButtonProps={{
-// //           style: {
-// //             background: "linear-gradient(135deg, #00D4B1, #0066FF)",
-// //             border: "none",
-// //           },
-// //         }}
-// //       >
-// //         <Space
-// //           direction="vertical"
-// //           size="middle"
-// //           style={{ width: "100%", marginTop: "20px" }}
-// //         >
-// //           <div>
-// //             <Text strong>Leave Duration</Text>
-// //             <RangePicker
-// //               style={{ width: "100%", marginTop: "8px" }}
-// //               onChange={(dates) => setLeaveDates(dates)}
-// //               popupStyle={{
-// //                 maxWidth: "calc(100vw - 32px)",
-// //               }}
-// //             />
-// //           </div>
-
-// //           <div>
-// //             <Text strong>Leave Type</Text>
-// //             <Select
-// //               placeholder="Select leave type"
-// //               style={{ width: "100%", marginTop: "8px" }}
-// //               value={leaveType}
-// //               onChange={(value) => setLeaveType(value)}
-// //             >
-// //               <Option value="annual">Annual Leave</Option>
-// //               <Option value="sick">Sick Leave</Option>
-// //               <Option value="casual">Casual Leave</Option>
-// //               <Option value="emergency">Emergency Leave</Option>
-// //             </Select>
-// //           </div>
-
-// //           <div>
-// //             <Text strong>Reason</Text>
-// //             <TextArea
-// //               rows={4}
-// //               placeholder="Enter reason for leave"
-// //               style={{ marginTop: "8px" }}
-// //               value={leaveReason}
-// //               onChange={(e) => setLeaveReason(e.target.value)}
-// //             />
-// //           </div>
-// //         </Space>
-// //       </Modal>
-
-// //       {/* Leave Details Modal */}
-// //       <Modal
-// //         title="My Leave Requests"
-// //         open={isLeaveDetailsModalVisible}
-// //         onCancel={() => setIsLeaveDetailsModalVisible(false)}
-// //         footer={[
-// //           <Button
-// //             key="close"
-// //             onClick={() => setIsLeaveDetailsModalVisible(false)}
-// //           >
-// //             Close
-// //           </Button>,
-// //         ]}
-// //         width={900}
-// //       >
-// //         <Table
-// //           columns={leaveColumns}
-// //           dataSource={recentLeaves}
-// //           rowKey="id"
-// //           pagination={{ pageSize: 10 }}
-// //           scroll={{ x: 700 }}
-// //         />
-// //       </Modal>
-// //     </div>
-// //   );
-// // }
-
 // import React, { useState, useEffect } from "react";
 // import {
 //   Card,
@@ -1042,6 +13,7 @@
 //   message,
 //   Tag,
 //   Table,
+//   Popconfirm,
 // } from "antd";
 // import {
 //   LineChart,
@@ -1056,6 +28,7 @@
 //   Cell,
 // } from "recharts";
 // import type { Dayjs } from "dayjs";
+// import { DeleteOutlined } from "@ant-design/icons";
 
 // const { Title, Text } = Typography;
 // const { Option } = Select;
@@ -1097,6 +70,7 @@
 // };
 
 // export default function Dashboard() {
+//   const [mounted, setMounted] = useState(false);
 //   const [userData, setUserData] = useState<UserData>({
 //     name: "User",
 //     userRole: "employee",
@@ -1137,18 +111,22 @@
 //   const [leaveChartData, setLeaveChartData] = useState<any[]>([]);
 
 //   const [upcomingShifts, setUpcomingShifts] = useState<any[]>([]);
+//   const [announcements, setAnnouncements] = useState<any[]>([]);
 
 //   useEffect(() => {
+//     setMounted(true);
 //     loadData();
 //   }, []);
 
 //   useEffect(() => {
-//     if (userData.name) {
+//     if (mounted && userData.name) {
 //       loadMyAttendance(userData.name);
 //     }
-//   }, [attendanceView, selectedDays, userData.name]);
+//   }, [attendanceView, selectedDays, userData.name, mounted]);
 
 //   const loadData = () => {
+//     if (typeof window === "undefined") return;
+
 //     // Load logged in user
 //     const loggedInUserStr = localStorage.getItem("loggedInUser");
 
@@ -1183,9 +161,17 @@
 //         setCheckInTime(checkInData.checkInTime);
 //       }
 //     }
+
+//     // Load announcements
+//     const announcementsData = JSON.parse(
+//       localStorage.getItem("companyAnnouncements") || "[]"
+//     );
+//     setAnnouncements(announcementsData);
 //   };
 
 //   const loadWeeklyAttendance = (userRole: string) => {
+//     if (typeof window === "undefined") return;
+
 //     const records: AttendanceRecord[] = JSON.parse(
 //       localStorage.getItem("attendanceRecords") || "[]"
 //     );
@@ -1229,6 +215,8 @@
 //   };
 
 //   const loadUpcomingShiftsForAdmin = () => {
+//     if (typeof window === "undefined") return;
+
 //     const leaves: LeaveRequest[] = JSON.parse(
 //       localStorage.getItem("leaveRequests") || "[]"
 //     );
@@ -1259,6 +247,7 @@
 //       }
 
 //       return {
+//         id: leave.id,
 //         type: leaveTypeMap[leave.leaveType] || leave.leaveType,
 //         time: duration,
 //         approved: true,
@@ -1270,6 +259,8 @@
 //   };
 
 //   const loadMyAttendance = (userName: string) => {
+//     if (typeof window === "undefined") return;
+
 //     const records: AttendanceRecord[] = JSON.parse(
 //       localStorage.getItem("attendanceRecords") || "[]"
 //     );
@@ -1326,6 +317,8 @@
 //   };
 
 //   const loadMyLeaveRequests = (userName: string) => {
+//     if (typeof window === "undefined") return;
+
 //     const leaves: LeaveRequest[] = JSON.parse(
 //       localStorage.getItem("leaveRequests") || "[]"
 //     );
@@ -1401,12 +394,70 @@
 //     setLeaveType("");
 //     setLeaveReason("");
 
-//     // Reload leave requests and force refresh
-//     setTimeout(() => {
+//     // Reload leave requests
+//     if (userData.userRole === "employee") {
 //       loadMyLeaveRequests(userData.name);
-//       // Force component refresh
-//       window.location.reload();
-//     }, 500);
+//     }
+//   };
+
+//   const handleDeleteLeave = (leaveId: number) => {
+//     if (typeof window === "undefined") return;
+
+//     const leaves: LeaveRequest[] = JSON.parse(
+//       localStorage.getItem("leaveRequests") || "[]"
+//     );
+
+//     const updatedLeaves = leaves.filter((leave) => leave.id !== leaveId);
+//     localStorage.setItem("leaveRequests", JSON.stringify(updatedLeaves));
+
+//     message.success("Leave deleted successfully!");
+
+//     // Reload data based on user role
+//     if (userData.userRole === "admin") {
+//       loadUpcomingShiftsForAdmin();
+//     } else {
+//       loadMyLeaveRequests(userData.name);
+//     }
+//   };
+
+//   const handleDeleteAnnouncement = (announcementId: string) => {
+//     if (typeof window === "undefined") return;
+
+//     const updatedAnnouncements = announcements.filter(
+//       (a: any) => a.id !== announcementId
+//     );
+//     localStorage.setItem(
+//       "companyAnnouncements",
+//       JSON.stringify(updatedAnnouncements)
+//     );
+
+//     const userNotifications: any[] = JSON.parse(
+//       localStorage.getItem(`notifications_${userData.name}`) || "[]"
+//     );
+
+//     const updatedNotifications = userNotifications.filter((n: any) => {
+//       if (n.type === "company_leave" || n.type === "company_announcement") {
+//         const notifDate = new Date(n.date).toDateString();
+//         const announceDate = announcements.find(
+//           (a: any) => a.id === announcementId
+//         );
+//         if (
+//           announceDate &&
+//           new Date(announceDate.date).toDateString() === notifDate
+//         ) {
+//           return false;
+//         }
+//       }
+//       return true;
+//     });
+
+//     localStorage.setItem(
+//       `notifications_${userData.name}`,
+//       JSON.stringify(updatedNotifications)
+//     );
+
+//     setAnnouncements(updatedAnnouncements);
+//     message.success("Announcement deleted");
 //   };
 
 //   const getShiftDisplay = () => {
@@ -1433,6 +484,12 @@
 //   };
 
 //   const leaveColumns = [
+//     {
+//       title: "Employee Name",
+//       dataIndex: "name",
+//       key: "name",
+//       render: (name: string) => <Text strong>{name}</Text>,
+//     },
 //     {
 //       title: "Leave Type",
 //       dataIndex: "leaveType",
@@ -1488,7 +545,29 @@
 //       key: "date",
 //       render: (date: string) => new Date(date).toLocaleDateString(),
 //     },
+//     {
+//       title: "Action",
+//       key: "action",
+//       render: (_: any, record: LeaveRequest) => (
+//         <Popconfirm
+//           title="Delete Leave"
+//           description="Are you sure you want to delete this leave permanently?"
+//           onConfirm={() => handleDeleteLeave(record.id)}
+//           okText="Yes"
+//           cancelText="No"
+//           okButtonProps={{
+//             danger: true,
+//           }}
+//         >
+//           <Button type="text" danger icon={<DeleteOutlined />} size="small">
+//             Delete
+//           </Button>
+//         </Popconfirm>
+//       ),
+//     },
 //   ];
+
+//   const employeeLeaveColumns = leaveColumns.filter((col) => col.key !== "name");
 
 //   const CustomLabel = ({
 //     cx,
@@ -1547,11 +626,15 @@
 //     return null;
 //   };
 
+//   if (!mounted) {
+//     return null;
+//   }
+
 //   return (
 //     <div style={{ padding: "20px", background: "#f0f2f5", minHeight: "100vh" }}>
 //       <Row gutter={[16, 16]}>
-//         {/* This Week's Attendance - Show for Admin */}
-//         <Col xs={24} lg={userData.userRole === "admin" ? 24 : 12}>
+//         {/* This Week's Attendance - Left side for Admin, full width for Employee */}
+//         <Col xs={24} lg={userData.userRole === "admin" ? 12 : 12}>
 //           <Card title="This Week's Attendance" style={{ borderRadius: "12px" }}>
 //             <div style={{ display: "flex", gap: "12px", marginBottom: "12px" }}>
 //               <span
@@ -1606,65 +689,65 @@
 //           </Card>
 //         </Col>
 
-//         {/* Upcoming Shifts - Show for both but different data */}
-//         {userData.userRole === "employee" && (
+//         {/* Upcoming Shifts for Admin - Right side */}
+//         {(userData.userRole === "admin" ||
+//           userData.userRole === "employee") && (
 //           <Col xs={24} lg={12}>
-//             <Card title="Upcoming Shifts" style={{ borderRadius: "12px" }}>
-//               <Space
-//                 direction="vertical"
-//                 size="middle"
-//                 style={{ width: "100%" }}
-//               >
-//                 <div>
-//                   <Text strong>Annual Leave</Text>
-//                   <Text
-//                     type="secondary"
-//                     style={{ display: "block", fontSize: "12px" }}
-//                   >
-//                     09:00 - 17:AM - Approved
-//                   </Text>
-//                 </div>
-//                 <div>
-//                   <Text strong>Sick Leave</Text>
-//                   <Text
-//                     type="secondary"
-//                     style={{ display: "block", fontSize: "12px" }}
-//                   >
-//                     3 days: 7 day - Approved
-//                   </Text>
-//                 </div>
-//               </Space>
-//             </Card>
-//           </Col>
-//         )}
-
-//         {/* Upcoming Shifts for Admin - Show all approved leaves */}
-//         {userData.userRole === "admin" && (
-//           <Col xs={24}>
-//             <Card
-//               title="Upcoming Shifts - All Approved Leaves"
-//               style={{ borderRadius: "12px" }}
-//             >
+//             <Card title="Upcoming Shifts " style={{ borderRadius: "12px" }}>
 //               {upcomingShifts.length > 0 ? (
-//                 <Space
-//                   direction="vertical"
-//                   size="middle"
-//                   style={{ width: "100%" }}
-//                 >
-//                   {upcomingShifts.map((shift, index) => (
-//                     <div key={index}>
-//                       <Text strong>
-//                         {shift.employeeName} - {shift.type}
-//                       </Text>
-//                       <Text
-//                         type="secondary"
-//                         style={{ display: "block", fontSize: "12px" }}
+//                 <div style={{ maxHeight: "240px", overflowY: "auto" }}>
+//                   <Space
+//                     direction="vertical"
+//                     size="middle"
+//                     style={{ width: "100%" }}
+//                   >
+//                     {upcomingShifts.map((shift, index) => (
+//                       <div
+//                         key={index}
+//                         style={{
+//                           display: "flex",
+//                           justifyContent: "space-between",
+//                           alignItems: "center",
+//                           padding: "12px",
+//                           background: "#fafafa",
+//                           borderRadius: "8px",
+//                         }}
 //                       >
-//                         {shift.time} - {shift.approved ? "Approved" : "Pending"}
-//                       </Text>
-//                     </div>
-//                   ))}
-//                 </Space>
+//                         <div style={{ flex: 1 }}>
+//                           <Text strong>
+//                             {shift.employeeName} - {shift.type}
+//                           </Text>
+//                           <Text
+//                             type="secondary"
+//                             style={{ display: "block", fontSize: "12px" }}
+//                           >
+//                             {shift.time} -{" "}
+//                             {shift.approved ? "Approved" : "Pending"}
+//                           </Text>
+//                         </div>
+//                         <Popconfirm
+//                           title="Delete Leave"
+//                           description="Are you sure you want to delete this leave permanently?"
+//                           onConfirm={() => handleDeleteLeave(shift.id)}
+//                           okText="Yes"
+//                           cancelText="No"
+//                           okButtonProps={{
+//                             danger: true,
+//                           }}
+//                         >
+//                           <Button
+//                             type="text"
+//                             danger
+//                             icon={<DeleteOutlined />}
+//                             size="small"
+//                           >
+//                             Delete
+//                           </Button>
+//                         </Popconfirm>
+//                       </div>
+//                     ))}
+//                   </Space>
+//                 </div>
 //               ) : (
 //                 <Text type="secondary">
 //                   No approved leave requests at this time
@@ -1679,7 +762,7 @@
 //           <Col xs={24} lg={12}>
 //             <Card
 //               title="Recent Leave Requests"
-//               style={{ borderRadius: "12px" }}
+//               style={{ borderRadius: "12px", height: "380px" }}
 //             >
 //               {leaveChartData.length > 0 ? (
 //                 <div
@@ -1934,77 +1017,22 @@
 //             title="Important Announcements"
 //             style={{ borderRadius: "12px" }}
 //           >
-//             {(() => {
-//               if (typeof window === "undefined") {
-//                 return <Text type="secondary">Loading announcements...</Text>;
-//               }
-
-//               const announcements = JSON.parse(
-//                 localStorage.getItem("companyAnnouncements") || "[]"
-//               );
-
-//               const handleDeleteAnnouncement = (announcementId: string) => {
-//                 const updatedAnnouncements = announcements.filter(
-//                   (a: any) => a.id !== announcementId
-//                 );
-//                 localStorage.setItem(
-//                   "companyAnnouncements",
-//                   JSON.stringify(updatedAnnouncements)
-//                 );
-
-//                 const userNotifications: any[] = JSON.parse(
-//                   localStorage.getItem(`notifications_${userData.name}`) || "[]"
-//                 );
-
-//                 const updatedNotifications = userNotifications.filter(
-//                   (n: any) => {
-//                     if (
-//                       n.type === "company_leave" ||
-//                       n.type === "company_announcement"
-//                     ) {
-//                       const notifDate = new Date(n.date).toDateString();
-//                       const announceDate = announcements.find(
-//                         (a: any) => a.id === announcementId
-//                       );
-//                       if (
-//                         announceDate &&
-//                         new Date(announceDate.date).toDateString() === notifDate
-//                       ) {
-//                         return false;
-//                       }
-//                     }
-//                     return true;
-//                   }
-//                 );
-
-//                 localStorage.setItem(
-//                   `notifications_${userData.name}`,
-//                   JSON.stringify(updatedNotifications)
-//                 );
-
-//                 message.success("Announcement deleted");
-//                 window.location.reload();
-//               };
-
-//               if (announcements.length === 0) {
-//                 return (
-//                   <>
-//                     <Text strong>No announcements at this time</Text>
-//                     <Text
-//                       type="secondary"
-//                       style={{
-//                         display: "block",
-//                         fontSize: "12px",
-//                         marginTop: "4px",
-//                       }}
-//                     >
-//                       Check back later for updates
-//                     </Text>
-//                   </>
-//                 );
-//               }
-
-//               return announcements.slice(0, 3).map((announcement: any) => (
+//             {announcements.length === 0 ? (
+//               <>
+//                 <Text strong>No announcements at this time</Text>
+//                 <Text
+//                   type="secondary"
+//                   style={{
+//                     display: "block",
+//                     fontSize: "12px",
+//                     marginTop: "4px",
+//                   }}
+//                 >
+//                   Check back later for updates
+//                 </Text>
+//               </>
+//             ) : (
+//               announcements.slice(0, 3).map((announcement: any) => (
 //                 <div
 //                   key={announcement.id}
 //                   style={{
@@ -2057,8 +1085,8 @@
 //                     {new Date(announcement.date).toLocaleDateString()}
 //                   </Text>
 //                 </div>
-//               ));
-//             })()}
+//               ))
+//             )}
 //           </Card>
 //         </Col>
 //       </Row>
@@ -2142,7 +1170,7 @@
 //         width={900}
 //       >
 //         <Table
-//           columns={leaveColumns}
+//           columns={employeeLeaveColumns}
 //           dataSource={recentLeaves}
 //           rowKey="id"
 //           pagination={{ pageSize: 10 }}
@@ -2184,11 +1212,15 @@ import {
 } from "recharts";
 import type { Dayjs } from "dayjs";
 import { DeleteOutlined } from "@ant-design/icons";
+import axios from "axios";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { TextArea } = Input;
+
+// API Base URL
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 interface UserData {
   name: string;
@@ -2198,24 +1230,24 @@ interface UserData {
   customShift?: string;
 }
 
-interface AttendanceRecord {
-  id: number;
-  name: string;
-  date: string;
-  checkIn: string;
-  checkOut: string;
-  workingTime: string;
-  status: "present" | "absent";
-}
-
 interface LeaveRequest {
-  id: number;
-  name: string;
-  dates: any;
+  _id: string;
+  employeeName: string;
   leaveType: string;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
   reason: string;
   status: string;
-  date: string;
+  createdAt: string;
+}
+
+interface Announcement {
+  _id: string;
+  title: string;
+  message: string;
+  priority: string;
+  createdAt: string;
 }
 
 const COLORS = {
@@ -2244,29 +1276,32 @@ export default function Dashboard() {
   const [leaveType, setLeaveType] = useState("");
   const [leaveReason, setLeaveReason] = useState("");
 
-  // Real-time attendance data
-  const [weeklyAttendance, setWeeklyAttendance] = useState([
-    { day: "Mon", present: 0, absent: 0 },
-    { day: "Tue", present: 0, absent: 0 },
-    { day: "Wed", present: 0, absent: 0 },
-    { day: "Thu", present: 0, absent: 0 },
-    { day: "Fri", present: 0, absent: 0 },
-    { day: "Sat", present: 0, absent: 0 },
-    { day: "Sun", present: 0, absent: 0 },
-  ]);
-
-  // My attendance data with actual and target hours
+  // Data state
+  const [weeklyAttendance, setWeeklyAttendance] = useState<any[]>([]);
   const [myAttendance, setMyAttendance] = useState<any[]>([]);
   const [attendanceView, setAttendanceView] = useState<
     "week" | "month" | "custom"
   >("week");
   const [selectedDays, setSelectedDays] = useState<number>(7);
-
   const [recentLeaves, setRecentLeaves] = useState<LeaveRequest[]>([]);
   const [leaveChartData, setLeaveChartData] = useState<any[]>([]);
-
   const [upcomingShifts, setUpcomingShifts] = useState<any[]>([]);
-  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Axios instance
+  const axiosInstance = axios.create({
+    baseURL: API_URL,
+    headers: { "Content-Type": "application/json" },
+  });
+
+  axiosInstance.interceptors.request.use((config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -2275,351 +1310,232 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (mounted && userData.name) {
-      loadMyAttendance(userData.name);
+      loadMyAttendance();
     }
   }, [attendanceView, selectedDays, userData.name, mounted]);
 
-  const loadData = () => {
-    if (typeof window === "undefined") return;
+  const loadData = async () => {
+    try {
+      // Load user from localStorage
+      const loggedInUserStr = localStorage.getItem("loggedInUser");
+      if (loggedInUserStr) {
+        const currentUser = JSON.parse(loggedInUserStr);
+        setUserData({
+          name: currentUser.name || "User",
+          userRole: currentUser.userRole || "employee",
+          specificRole: currentUser.specificRole || "Employee",
+          shift: currentUser.shift,
+          customShift: currentUser.customShift,
+        });
 
-    // Load logged in user
-    const loggedInUserStr = localStorage.getItem("loggedInUser");
+        // Load backend data
+        await loadWeeklyAttendance();
+        await loadAnnouncements();
 
-    if (loggedInUserStr) {
-      const currentUser = JSON.parse(loggedInUserStr);
-      setUserData({
-        name: currentUser.name || "User",
-        userRole: currentUser.userRole || "employee",
-        specificRole: currentUser.specificRole || "Employee",
-        shift: currentUser.shift,
-        customShift: currentUser.customShift,
-      });
-
-      // Load attendance data
-      loadWeeklyAttendance(currentUser.userRole);
-
-      if (currentUser.userRole === "employee") {
-        loadMyAttendance(currentUser.name);
-        loadMyLeaveRequests(currentUser.name);
-      } else if (currentUser.userRole === "admin") {
-        loadUpcomingShiftsForAdmin();
-      }
-    }
-
-    // Load today's check-in data
-    const savedCheckIn = localStorage.getItem("checkInData");
-    if (savedCheckIn) {
-      const checkInData = JSON.parse(savedCheckIn);
-      const checkInDate = new Date(checkInData.checkInTime);
-      const today = new Date();
-      if (checkInDate.toDateString() === today.toDateString()) {
-        setCheckInTime(checkInData.checkInTime);
-      }
-    }
-
-    // Load announcements
-    const announcementsData = JSON.parse(
-      localStorage.getItem("companyAnnouncements") || "[]"
-    );
-    setAnnouncements(announcementsData);
-  };
-
-  const loadWeeklyAttendance = (userRole: string) => {
-    if (typeof window === "undefined") return;
-
-    const records: AttendanceRecord[] = JSON.parse(
-      localStorage.getItem("attendanceRecords") || "[]"
-    );
-
-    // Get dates for the current week (last 7 days)
-    const today = new Date();
-    const weekData = [
-      { day: "Mon", present: 0, absent: 0 },
-      { day: "Tue", present: 0, absent: 0 },
-      { day: "Wed", present: 0, absent: 0 },
-      { day: "Thu", present: 0, absent: 0 },
-      { day: "Fri", present: 0, absent: 0 },
-      { day: "Sat", present: 0, absent: 0 },
-      { day: "Sun", present: 0, absent: 0 },
-    ];
-
-    // Calculate for last 7 days
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toLocaleDateString("en-US");
-      const dayIndex = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
-
-      // Adjust index to match our array (Monday = 0)
-      const adjustedIndex = dayIndex === 0 ? 6 : dayIndex - 1;
-
-      const dayRecords = records.filter((record) => record.date === dateStr);
-
-      const presentCount = dayRecords.filter(
-        (record) => record.status === "present"
-      ).length;
-      const absentCount = dayRecords.filter(
-        (record) => record.status === "absent"
-      ).length;
-
-      weekData[adjustedIndex].present += presentCount;
-      weekData[adjustedIndex].absent += absentCount;
-    }
-
-    setWeeklyAttendance(weekData);
-  };
-
-  const loadUpcomingShiftsForAdmin = () => {
-    if (typeof window === "undefined") return;
-
-    const leaves: LeaveRequest[] = JSON.parse(
-      localStorage.getItem("leaveRequests") || "[]"
-    );
-
-    // Filter only approved leaves
-    const approvedLeaves = leaves.filter(
-      (leave) => leave.status === "Approved"
-    );
-
-    // Convert to upcoming shifts format
-    const shifts = approvedLeaves.map((leave) => {
-      const leaveTypeMap: any = {
-        annual: "Annual Leave",
-        sick: "Sick Leave",
-        casual: "Casual Leave",
-        emergency: "Emergency Leave",
-      };
-
-      let duration = "N/A";
-      if (leave.dates && Array.isArray(leave.dates)) {
-        const startDate = new Date(leave.dates[0]);
-        const endDate = new Date(leave.dates[1]);
-        const days =
-          Math.ceil(
-            (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-          ) + 1;
-        duration = `${days} day${days === 1 ? "" : "s"}: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
-      }
-
-      return {
-        id: leave.id,
-        type: leaveTypeMap[leave.leaveType] || leave.leaveType,
-        time: duration,
-        approved: true,
-        employeeName: leave.name,
-      };
-    });
-
-    setUpcomingShifts(shifts);
-  };
-
-  const loadMyAttendance = (userName: string) => {
-    if (typeof window === "undefined") return;
-
-    const records: AttendanceRecord[] = JSON.parse(
-      localStorage.getItem("attendanceRecords") || "[]"
-    );
-
-    const today = new Date();
-    const attendanceData = [];
-    const targetHours = 8;
-
-    let daysToShow = selectedDays;
-    if (attendanceView === "week") {
-      daysToShow = 7;
-    } else if (attendanceView === "month") {
-      daysToShow = 30;
-    }
-
-    // Load data for the selected number of days
-    for (let i = daysToShow - 1; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toLocaleDateString("en-US");
-      const dayName = date.toLocaleDateString("en-US", { weekday: "short" });
-      const dayLabel =
-        attendanceView === "month" ? date.getDate().toString() : dayName;
-
-      const userRecord = records.find(
-        (record) =>
-          record.name === userName &&
-          record.date === dateStr &&
-          record.status === "present"
-      );
-
-      let actualHours = 0;
-      if (
-        userRecord &&
-        userRecord.workingTime &&
-        userRecord.workingTime !== "-"
-      ) {
-        const match = userRecord.workingTime.match(/(\d+\.?\d*)h/);
-        if (match) {
-          actualHours = parseFloat(match[1]);
+        if (currentUser.userRole === "employee") {
+          await loadCheckInStatus();
+          await loadMyLeaveRequests();
+        } else if (currentUser.userRole === "admin") {
+          await loadUpcomingLeaves();
         }
       }
-
-      attendanceData.push({
-        day: dayLabel,
-        actualHours: actualHours,
-        targetHours: targetHours,
-        date: date,
-        fullDate: dateStr,
-      });
+    } catch (error) {
+      console.error("Load data error:", error);
     }
-
-    setMyAttendance(attendanceData);
   };
 
-  const loadMyLeaveRequests = (userName: string) => {
-    if (typeof window === "undefined") return;
-
-    const leaves: LeaveRequest[] = JSON.parse(
-      localStorage.getItem("leaveRequests") || "[]"
-    );
-
-    const userLeaves = leaves.filter((leave) => leave.name === userName);
-    setRecentLeaves(userLeaves);
-
-    // Prepare chart data
-    const statusCounts = {
-      Approved: 0,
-      Pending: 0,
-      Rejected: 0,
-    };
-
-    userLeaves.forEach((leave) => {
-      if (leave.status in statusCounts) {
-        statusCounts[leave.status as keyof typeof statusCounts]++;
+  const loadWeeklyAttendance = async () => {
+    try {
+      const response = await axiosInstance.get("/attendance/weekly-stats");
+      if (response.data.success) {
+        setWeeklyAttendance(response.data.data.weekData);
       }
-    });
+    } catch (error: any) {
+      console.error("Load weekly attendance error:", error);
+    }
+  };
 
-    // Calculate total days and percentages
-    let totalDays = 0;
-    userLeaves.forEach((leave) => {
-      if (leave.dates && Array.isArray(leave.dates)) {
-        const startDate = new Date(leave.dates[0]);
-        const endDate = new Date(leave.dates[1]);
-        const days =
-          Math.ceil(
-            (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-          ) + 1;
-        totalDays += days;
+  const loadCheckInStatus = async () => {
+    try {
+      const response = await axiosInstance.get("/attendance/check-in-status");
+      if (response.data.success) {
+        const { checkInTime } = response.data.data;
+        if (checkInTime) {
+          setCheckInTime(checkInTime);
+        }
       }
-    });
+    } catch (error: any) {
+      console.error("Load check-in status error:", error);
+    }
+  };
 
-    const chartData = Object.entries(statusCounts)
-      .filter(([_, count]) => count > 0)
-      .map(([status, count]) => ({
-        name: status,
-        value: count,
-        percentage:
-          totalDays > 0 ? Math.round((count / userLeaves.length) * 100) : 0,
-      }));
+  const loadMyAttendance = async () => {
+    try {
+      let days = selectedDays;
+      if (attendanceView === "week") days = 7;
+      else if (attendanceView === "month") days = 30;
 
-    setLeaveChartData(chartData);
+      const response = await axiosInstance.get(
+        `/attendance/my-history?days=${days}`
+      );
+      if (response.data.success) {
+        setMyAttendance(response.data.data.attendance);
+      }
+    } catch (error: any) {
+      console.error("Load my attendance error:", error);
+    }
+  };
+
+  const loadMyLeaveRequests = async () => {
+    try {
+      const response = await axiosInstance.get("/leaves/list");
+      if (response.data.success) {
+        setRecentLeaves(response.data.data.leaves);
+
+        // Calculate chart data
+        const statusCounts = {
+          Approved: 0,
+          Pending: 0,
+          Rejected: 0,
+        };
+
+        response.data.data.leaves.forEach((leave: LeaveRequest) => {
+          if (leave.status in statusCounts) {
+            statusCounts[leave.status as keyof typeof statusCounts]++;
+          }
+        });
+
+        const chartData = Object.entries(statusCounts)
+          .filter(([_, count]) => count > 0)
+          .map(([status, count]) => ({
+            name: status,
+            value: count,
+            percentage: Math.round(
+              (count / response.data.data.leaves.length) * 100
+            ),
+          }));
+
+        setLeaveChartData(chartData);
+      }
+    } catch (error: any) {
+      console.error("Load leave requests error:", error);
+    }
+  };
+
+  const loadUpcomingLeaves = async () => {
+    try {
+      const response = await axiosInstance.get("/leaves/upcoming");
+      if (response.data.success) {
+        const shifts = response.data.data.leaves.map((leave: any) => ({
+          id: leave._id,
+          type: leave.leaveType,
+          time: `${new Date(leave.startDate).toLocaleDateString()} - ${new Date(leave.endDate).toLocaleDateString()}`,
+          approved: true,
+          employeeName: leave.employeeName,
+        }));
+        setUpcomingShifts(shifts);
+      }
+    } catch (error: any) {
+      console.error("Load upcoming leaves error:", error);
+    }
+  };
+
+  const loadAnnouncements = async () => {
+    try {
+      const response = await axiosInstance.get("/announcements/list");
+      if (response.data.success) {
+        setAnnouncements(response.data.data.announcements);
+      }
+    } catch (error: any) {
+      console.error("Load announcements error:", error);
+    }
   };
 
   const handleLeaveRequest = () => {
     setIsLeaveModalVisible(true);
   };
 
-  const handleLeaveSubmit = () => {
+  const handleLeaveSubmit = async () => {
     if (!leaveDates || !leaveType || !leaveReason) {
       message.error("Please fill all fields!");
       return;
     }
 
-    const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
-    const newLeave: LeaveRequest = {
-      id: Date.now(),
-      name: userData.name,
-      dates: leaveDates,
-      leaveType,
-      reason: leaveReason,
-      status: "Pending",
-      date: new Date().toISOString(),
-    };
-    leaves.push(newLeave);
-    localStorage.setItem("leaveRequests", JSON.stringify(leaves));
+    try {
+      setLoading(true);
+      const response = await axiosInstance.post("/leaves/submit", {
+        startDate: leaveDates[0]?.toISOString(),
+        endDate: leaveDates[1]?.toISOString(),
+        leaveType,
+        reason: leaveReason,
+      });
 
-    message.success("Leave request submitted successfully!");
-    setIsLeaveModalVisible(false);
-    setLeaveDates(null);
-    setLeaveType("");
-    setLeaveReason("");
+      if (response.data.success) {
+        message.success("Leave request submitted successfully!");
+        setIsLeaveModalVisible(false);
+        setLeaveDates(null);
+        setLeaveType("");
+        setLeaveReason("");
 
-    // Reload leave requests
-    if (userData.userRole === "employee") {
-      loadMyLeaveRequests(userData.name);
-    }
-  };
-
-  const handleDeleteLeave = (leaveId: number) => {
-    if (typeof window === "undefined") return;
-
-    const leaves: LeaveRequest[] = JSON.parse(
-      localStorage.getItem("leaveRequests") || "[]"
-    );
-
-    const updatedLeaves = leaves.filter((leave) => leave.id !== leaveId);
-    localStorage.setItem("leaveRequests", JSON.stringify(updatedLeaves));
-
-    message.success("Leave deleted successfully!");
-
-    // Reload data based on user role
-    if (userData.userRole === "admin") {
-      loadUpcomingShiftsForAdmin();
-    } else {
-      loadMyLeaveRequests(userData.name);
-    }
-  };
-
-  const handleDeleteAnnouncement = (announcementId: string) => {
-    if (typeof window === "undefined") return;
-
-    const updatedAnnouncements = announcements.filter(
-      (a: any) => a.id !== announcementId
-    );
-    localStorage.setItem(
-      "companyAnnouncements",
-      JSON.stringify(updatedAnnouncements)
-    );
-
-    const userNotifications: any[] = JSON.parse(
-      localStorage.getItem(`notifications_${userData.name}`) || "[]"
-    );
-
-    const updatedNotifications = userNotifications.filter((n: any) => {
-      if (n.type === "company_leave" || n.type === "company_announcement") {
-        const notifDate = new Date(n.date).toDateString();
-        const announceDate = announcements.find(
-          (a: any) => a.id === announcementId
-        );
-        if (
-          announceDate &&
-          new Date(announceDate.date).toDateString() === notifDate
-        ) {
-          return false;
+        if (userData.userRole === "employee") {
+          await loadMyLeaveRequests();
         }
       }
-      return true;
-    });
+    } catch (error: any) {
+      console.error("Submit leave error:", error);
+      message.error(
+        error.response?.data?.message || "Failed to submit leave request"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    localStorage.setItem(
-      `notifications_${userData.name}`,
-      JSON.stringify(updatedNotifications)
-    );
+  const handleDeleteLeave = async (leaveId: string) => {
+    try {
+      setLoading(true);
+      const response = await axiosInstance.delete(`/leaves/${leaveId}`);
 
-    setAnnouncements(updatedAnnouncements);
-    message.success("Announcement deleted");
+      if (response.data.success) {
+        message.success("Leave deleted successfully!");
+
+        if (userData.userRole === "admin") {
+          await loadUpcomingLeaves();
+        } else {
+          await loadMyLeaveRequests();
+        }
+      }
+    } catch (error: any) {
+      console.error("Delete leave error:", error);
+      message.error(error.response?.data?.message || "Failed to delete leave");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (announcementId: string) => {
+    try {
+      setLoading(true);
+      const response = await axiosInstance.delete(
+        `/announcements/${announcementId}`
+      );
+
+      if (response.data.success) {
+        message.success("Announcement deleted successfully!");
+        await loadAnnouncements();
+      }
+    } catch (error: any) {
+      console.error("Delete announcement error:", error);
+      message.error(
+        error.response?.data?.message || "Failed to delete announcement"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getShiftDisplay = () => {
-    if (userData.customShift) {
-      return userData.customShift;
-    }
-
+    if (userData.customShift) return userData.customShift;
     if (userData.shift) {
       const shiftMap: any = {
         morning: "Morning Shift (09:00 - 17:00)",
@@ -2628,21 +1544,14 @@ export default function Dashboard() {
       };
       return shiftMap[userData.shift] || "Not Set";
     }
-
     return "Not Set";
-  };
-
-  const getTomorrowDate = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toLocaleDateString("en-US", { weekday: "long" });
   };
 
   const leaveColumns = [
     {
       title: "Employee Name",
-      dataIndex: "name",
-      key: "name",
+      dataIndex: "employeeName",
+      key: "employeeName",
       render: (name: string) => <Text strong>{name}</Text>,
     },
     {
@@ -2661,20 +1570,9 @@ export default function Dashboard() {
     },
     {
       title: "Duration",
-      dataIndex: "dates",
-      key: "dates",
-      render: (dates: any) => {
-        if (dates && Array.isArray(dates)) {
-          const startDate = new Date(dates[0]);
-          const endDate = new Date(dates[1]);
-          const days =
-            Math.ceil(
-              (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-            ) + 1;
-          return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()} (${days} ${days === 1 ? "day" : "days"})`;
-        }
-        return "N/A";
-      },
+      key: "duration",
+      render: (record: LeaveRequest) =>
+        `${new Date(record.startDate).toLocaleDateString()} - ${new Date(record.endDate).toLocaleDateString()} (${record.totalDays} ${record.totalDays === 1 ? "day" : "days"})`,
     },
     {
       title: "Reason",
@@ -2696,8 +1594,8 @@ export default function Dashboard() {
     },
     {
       title: "Submitted On",
-      dataIndex: "date",
-      key: "date",
+      dataIndex: "createdAt",
+      key: "createdAt",
       render: (date: string) => new Date(date).toLocaleDateString(),
     },
     {
@@ -2707,14 +1605,18 @@ export default function Dashboard() {
         <Popconfirm
           title="Delete Leave"
           description="Are you sure you want to delete this leave permanently?"
-          onConfirm={() => handleDeleteLeave(record.id)}
+          onConfirm={() => handleDeleteLeave(record._id)}
           okText="Yes"
           cancelText="No"
-          okButtonProps={{
-            danger: true,
-          }}
+          okButtonProps={{ danger: true }}
         >
-          <Button type="text" danger icon={<DeleteOutlined />} size="small">
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            size="small"
+            loading={loading}
+          >
             Delete
           </Button>
         </Popconfirm>
@@ -2722,7 +1624,9 @@ export default function Dashboard() {
     },
   ];
 
-  const employeeLeaveColumns = leaveColumns.filter((col) => col.key !== "name");
+  const employeeLeaveColumns = leaveColumns.filter(
+    (col) => col.key !== "employeeName"
+  );
 
   const CustomLabel = ({
     cx,
@@ -2781,14 +1685,11 @@ export default function Dashboard() {
     return null;
   };
 
-  if (!mounted) {
-    return null;
-  }
+  if (!mounted) return null;
 
   return (
     <div style={{ padding: "20px", background: "#f0f2f5", minHeight: "100vh" }}>
       <Row gutter={[16, 16]}>
-        {/* This Week's Attendance - Left side for Admin, full width for Employee */}
         <Col xs={24} lg={userData.userRole === "admin" ? 12 : 12}>
           <Card title="This Week's Attendance" style={{ borderRadius: "12px" }}>
             <div style={{ display: "flex", gap: "12px", marginBottom: "12px" }}>
@@ -2844,11 +1745,10 @@ export default function Dashboard() {
           </Card>
         </Col>
 
-        {/* Upcoming Shifts for Admin - Right side */}
         {(userData.userRole === "admin" ||
           userData.userRole === "employee") && (
           <Col xs={24} lg={12}>
-            <Card title="Upcoming Shifts " style={{ borderRadius: "12px" }}>
+            <Card title="Upcoming Shifts" style={{ borderRadius: "12px" }}>
               {upcomingShifts.length > 0 ? (
                 <div style={{ maxHeight: "240px", overflowY: "auto" }}>
                   <Space
@@ -2856,9 +1756,9 @@ export default function Dashboard() {
                     size="middle"
                     style={{ width: "100%" }}
                   >
-                    {upcomingShifts.map((shift, index) => (
+                    {upcomingShifts.map((shift) => (
                       <div
-                        key={index}
+                        key={shift.id}
                         style={{
                           display: "flex",
                           justifyContent: "space-between",
@@ -2886,15 +1786,14 @@ export default function Dashboard() {
                           onConfirm={() => handleDeleteLeave(shift.id)}
                           okText="Yes"
                           cancelText="No"
-                          okButtonProps={{
-                            danger: true,
-                          }}
+                          okButtonProps={{ danger: true }}
                         >
                           <Button
                             type="text"
                             danger
                             icon={<DeleteOutlined />}
                             size="small"
+                            loading={loading}
                           >
                             Delete
                           </Button>
@@ -2912,120 +1811,213 @@ export default function Dashboard() {
           </Col>
         )}
 
-        {/* Recent Leave Requests - Only for Employee */}
         {userData.userRole === "employee" && (
-          <Col xs={24} lg={12}>
-            <Card
-              title="Recent Leave Requests"
-              style={{ borderRadius: "12px", height: "380px" }}
-            >
-              {leaveChartData.length > 0 ? (
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "24px" }}
-                >
-                  <ResponsiveContainer width={140} height={140}>
-                    <PieChart>
-                      <Pie
-                        data={leaveChartData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={40}
-                        outerRadius={70}
-                        paddingAngle={2}
-                        dataKey="value"
-                        label={CustomLabel}
-                        labelLine={false}
-                      >
-                        {leaveChartData.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={COLORS[entry.name as keyof typeof COLORS]}
-                          />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div style={{ flex: 1 }}>
-                    {leaveChartData.map((entry, index) => {
-                      const totalDays = recentLeaves
-                        .filter((leave) => leave.status === entry.name)
-                        .reduce((sum, leave) => {
-                          if (leave.dates && Array.isArray(leave.dates)) {
-                            const startDate = new Date(leave.dates[0]);
-                            const endDate = new Date(leave.dates[1]);
-                            return (
-                              sum +
-                              Math.ceil(
-                                (endDate.getTime() - startDate.getTime()) /
-                                  (1000 * 60 * 60 * 24)
-                              ) +
-                              1
-                            );
-                          }
-                          return sum;
-                        }, 0);
+          <>
+            <Col xs={24} lg={12}>
+              <Card
+                title="Recent Leave Requests"
+                style={{ borderRadius: "12px", height: "380px" }}
+              >
+                {leaveChartData.length > 0 ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "24px",
+                    }}
+                  >
+                    <ResponsiveContainer width={140} height={140}>
+                      <PieChart>
+                        <Pie
+                          data={leaveChartData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={70}
+                          paddingAngle={2}
+                          dataKey="value"
+                          label={CustomLabel}
+                          labelLine={false}
+                        >
+                          {leaveChartData.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={COLORS[entry.name as keyof typeof COLORS]}
+                            />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div style={{ flex: 1 }}>
+                      {leaveChartData.map((entry, index) => {
+                        const totalDays = recentLeaves
+                          .filter((leave) => leave.status === entry.name)
+                          .reduce((sum, leave) => sum + leave.totalDays, 0);
 
-                      return (
-                        <div key={index} style={{ marginBottom: "12px" }}>
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "8px",
-                              marginBottom: "4px",
-                            }}
-                          >
+                        return (
+                          <div key={index} style={{ marginBottom: "12px" }}>
                             <div
                               style={{
-                                width: "12px",
-                                height: "12px",
-                                background:
-                                  COLORS[entry.name as keyof typeof COLORS],
-                                borderRadius: "2px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                marginBottom: "4px",
                               }}
-                            ></div>
-                            <Text strong style={{ fontSize: "14px" }}>
-                              {totalDays} day{totalDays !== 1 ? "s" : ""} -{" "}
-                              {entry.name}
+                            >
+                              <div
+                                style={{
+                                  width: "12px",
+                                  height: "12px",
+                                  background:
+                                    COLORS[entry.name as keyof typeof COLORS],
+                                  borderRadius: "2px",
+                                }}
+                              ></div>
+                              <Text strong style={{ fontSize: "14px" }}>
+                                {totalDays} day{totalDays !== 1 ? "s" : ""} -{" "}
+                                {entry.name}
+                              </Text>
+                            </div>
+                            <Text
+                              type="secondary"
+                              style={{ fontSize: "12px", marginLeft: "20px" }}
+                            >
+                              {entry.percentage}%
                             </Text>
                           </div>
-                          <Text
-                            type="secondary"
-                            style={{ fontSize: "12px", marginLeft: "20px" }}
-                          >
-                            {entry.percentage}%
-                          </Text>
-                        </div>
-                      );
-                    })}
-                    <Text
-                      type="secondary"
-                      style={{
-                        fontSize: "11px",
-                        display: "block",
-                        marginTop: "8px",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => setIsLeaveDetailsModalVisible(true)}
-                    >
-                      Click to view all leave requests
-                    </Text>
+                        );
+                      })}
+                      <Text
+                        type="secondary"
+                        style={{
+                          fontSize: "11px",
+                          display: "block",
+                          marginTop: "8px",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => setIsLeaveDetailsModalVisible(true)}
+                      >
+                        Click to view all leave requests
+                      </Text>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <Text type="secondary">No leave requests yet</Text>
-              )}
-            </Card>
-          </Col>
-        )}
+                ) : (
+                  <Text type="secondary">No leave requests yet</Text>
+                )}
+              </Card>
+            </Col>
 
-        {/* My Attendance Snapshot - Only for Employee */}
-        {userData.userRole === "employee" && (
-          <Col xs={24} lg={12}>
-            <Card
-              title={
+            <Col xs={24} lg={12}>
+              <Card
+                title={
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "8px",
+                    }}
+                  >
+                    <span>My Attendance Snapshot</span>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <Select
+                        value={attendanceView}
+                        onChange={(value) => {
+                          setAttendanceView(value);
+                          if (value === "week") setSelectedDays(7);
+                          else if (value === "month") setSelectedDays(30);
+                        }}
+                        style={{ width: 100 }}
+                        size="small"
+                      >
+                        <Option value="week">Week</Option>
+                        <Option value="month">Month</Option>
+                        <Option value="custom">Custom</Option>
+                      </Select>
+                      {attendanceView === "custom" && (
+                        <Select
+                          value={selectedDays}
+                          onChange={(value) => setSelectedDays(value)}
+                          style={{ width: 90 }}
+                          size="small"
+                          placeholder="Days"
+                        >
+                          <Option value={2}>2 Days</Option>
+                          <Option value={3}>3 Days</Option>
+                          <Option value={5}>5 Days</Option>
+                          <Option value={10}>10 Days</Option>
+                          <Option value={15}>15 Days</Option>
+                          <Option value={20}>20 Days</Option>
+                        </Select>
+                      )}
+                    </div>
+                  </div>
+                }
+                style={{ borderRadius: "12px" }}
+                bodyStyle={{ padding: "16px" }}
+              >
+                <Row gutter={[16, 16]} align="middle">
+                  <Col xs={24} md={16} lg={14}>
+                    <div style={{ width: "100%", height: "220px" }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={myAttendance}>
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="#f0f0f0"
+                          />
+                          <XAxis
+                            dataKey="day"
+                            style={{
+                              fontSize:
+                                attendanceView === "month" ? "9px" : "11px",
+                            }}
+                            interval={attendanceView === "month" ? 2 : 0}
+                          />
+                          <YAxis
+                            domain={[0, 10]}
+                            ticks={[0, 2, 4, 6, 8, 10]}
+                            style={{ fontSize: "11px" }}
+                          />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Line
+                            type="monotone"
+                            dataKey="actualHours"
+                            stroke="#00D4B1"
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                            name="Actual Hours"
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="targetHours"
+                            stroke="#FF4D4F"
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                            name="Target Hours"
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </Col>
+                  <Col xs={24} md={8} lg={10}>
+                    <div style={{ textAlign: "center", borderRadius: "8px" }}>
+                      <Text strong style={{ fontSize: "16px" }}>
+                        Tomorrow
+                      </Text>
+                      <br />
+                      <Text type="secondary" style={{ fontSize: "14px" }}>
+                        {getShiftDisplay()}
+                      </Text>
+                    </div>
+                  </Col>
+                </Row>
                 <div
                   style={{
+                    marginTop: "20px",
+                    padding: "16px",
+                    background: "#f5f5f5",
+                    borderRadius: "8px",
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
@@ -3033,140 +2025,20 @@ export default function Dashboard() {
                     gap: "8px",
                   }}
                 >
-                  <span>My Attendance Snapshot</span>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <Select
-                      value={attendanceView}
-                      onChange={(value) => {
-                        setAttendanceView(value);
-                        if (value === "week") setSelectedDays(7);
-                        else if (value === "month") setSelectedDays(30);
-                      }}
-                      style={{ width: 100 }}
-                      size="small"
-                    >
-                      <Option value="week">Week</Option>
-                      <Option value="month">Month</Option>
-                      <Option value="custom">Custom</Option>
-                    </Select>
-
-                    {attendanceView === "custom" && (
-                      <Select
-                        value={selectedDays}
-                        onChange={(value) => setSelectedDays(value)}
-                        style={{ width: 90 }}
-                        size="small"
-                        placeholder="Days"
-                      >
-                        <Option value={2}>2 Days</Option>
-                        <Option value={3}>3 Days</Option>
-                        <Option value={5}>5 Days</Option>
-                        <Option value={10}>10 Days</Option>
-                        <Option value={15}>15 Days</Option>
-                        <Option value={20}>20 Days</Option>
-                      </Select>
-                    )}
-                  </div>
+                  <Text strong style={{ fontSize: "15px", color: "#333" }}>
+                    Last Check-in:
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: "14px" }}>
+                    {checkInTime
+                      ? `Today, ${new Date(checkInTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}`
+                      : "Not checked in yet"}
+                  </Text>
                 </div>
-              }
-              style={{ borderRadius: "12px" }}
-              bodyStyle={{ padding: "16px" }}
-            >
-              <Row gutter={[16, 16]} align="middle">
-                <Col xs={24} md={16} lg={14}>
-                  <div style={{ width: "100%", height: "220px" }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={myAttendance}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis
-                          dataKey="day"
-                          style={{
-                            fontSize:
-                              attendanceView === "month" ? "9px" : "11px",
-                          }}
-                          interval={attendanceView === "month" ? 2 : 0}
-                          axisLine={true}
-                          tickLine={true}
-                        />
-                        <YAxis
-                          domain={[0, 10]}
-                          ticks={[0, 2, 4, 6, 8, 10]}
-                          style={{ fontSize: "11px" }}
-                        />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Line
-                          type="monotone"
-                          dataKey="actualHours"
-                          stroke="#00D4B1"
-                          strokeWidth={2}
-                          dot={{ r: 3 }}
-                          name="Actual Hours"
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="targetHours"
-                          stroke="#FF4D4F"
-                          strokeWidth={2}
-                          dot={{ r: 3 }}
-                          name="Target Hours"
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Col>
-
-                <Col xs={24} md={8} lg={10}>
-                  <div
-                    style={{
-                      textAlign: "center",
-                      borderRadius: "8px",
-                    }}
-                  >
-                    <Text strong style={{ fontSize: "16px" }}>
-                      Tomorrow
-                    </Text>
-                    <br />
-                    <Text type="secondary" style={{ fontSize: "14px" }}>
-                      {getShiftDisplay()}
-                    </Text>
-                  </div>
-                </Col>
-              </Row>
-
-              <div
-                style={{
-                  marginTop: "20px",
-                  padding: "16px",
-                  background: "#f5f5f5",
-                  borderRadius: "8px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: "8px",
-                }}
-              >
-                <Text strong style={{ fontSize: "15px", color: "#333" }}>
-                  Last Check-in:
-                </Text>
-                <Text type="secondary" style={{ fontSize: "14px" }}>
-                  {checkInTime
-                    ? `Today, ${new Date(checkInTime).toLocaleTimeString(
-                        "en-US",
-                        {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        }
-                      )}`
-                    : "Not checked in yet"}
-                </Text>
-              </div>
-            </Card>
-          </Col>
+              </Card>
+            </Col>
+          </>
         )}
 
-        {/* Important Announcements - Show for both */}
         <Col xs={24}>
           <Card
             title="Important Announcements"
@@ -3187,9 +2059,9 @@ export default function Dashboard() {
                 </Text>
               </>
             ) : (
-              announcements.slice(0, 3).map((announcement: any) => (
+              announcements.slice(0, 3).map((announcement) => (
                 <div
-                  key={announcement.id}
+                  key={announcement._id}
                   style={{
                     marginBottom: "12px",
                     paddingBottom: "12px",
@@ -3197,17 +2069,18 @@ export default function Dashboard() {
                     position: "relative",
                   }}
                 >
-                  <Button
-                    type="text"
-                    danger
-                    size="small"
-                    onClick={() => handleDeleteAnnouncement(announcement.id)}
-                    style={{
-                      position: "absolute",
-                      right: "0",
-                      top: "0",
-                    }}
-                  />
+                  {userData.userRole === "admin" && (
+                    <Button
+                      type="text"
+                      danger
+                      size="small"
+                      onClick={() => handleDeleteAnnouncement(announcement._id)}
+                      loading={loading}
+                      style={{ position: "absolute", right: "0", top: "0" }}
+                    >
+                      Delete
+                    </Button>
+                  )}
                   <Text
                     strong
                     style={{
@@ -3237,7 +2110,7 @@ export default function Dashboard() {
                       color: "#8c8c8c",
                     }}
                   >
-                    {new Date(announcement.date).toLocaleDateString()}
+                    {new Date(announcement.createdAt).toLocaleDateString()}
                   </Text>
                 </div>
               ))
@@ -3246,7 +2119,6 @@ export default function Dashboard() {
         </Col>
       </Row>
 
-      {/* Submit Leave Request Modal */}
       <Modal
         title="Request Leave"
         open={isLeaveModalVisible}
@@ -3257,6 +2129,7 @@ export default function Dashboard() {
           setLeaveReason("");
         }}
         onOk={handleLeaveSubmit}
+        confirmLoading={loading}
         okText="Submit Request"
         okButtonProps={{
           style: {
@@ -3275,12 +2148,8 @@ export default function Dashboard() {
             <RangePicker
               style={{ width: "100%", marginTop: "8px" }}
               onChange={(dates) => setLeaveDates(dates)}
-              popupStyle={{
-                maxWidth: "calc(100vw - 32px)",
-              }}
             />
           </div>
-
           <div>
             <Text strong>Leave Type</Text>
             <Select
@@ -3295,7 +2164,6 @@ export default function Dashboard() {
               <Option value="emergency">Emergency Leave</Option>
             </Select>
           </div>
-
           <div>
             <Text strong>Reason</Text>
             <TextArea
@@ -3309,7 +2177,6 @@ export default function Dashboard() {
         </Space>
       </Modal>
 
-      {/* Leave Details Modal */}
       <Modal
         title="My Leave Requests"
         open={isLeaveDetailsModalVisible}
@@ -3327,7 +2194,7 @@ export default function Dashboard() {
         <Table
           columns={employeeLeaveColumns}
           dataSource={recentLeaves}
-          rowKey="id"
+          rowKey="_id"
           pagination={{ pageSize: 10 }}
           scroll={{ x: 700 }}
         />
