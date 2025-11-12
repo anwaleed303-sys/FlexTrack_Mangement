@@ -3127,9 +3127,9 @@ const DashboardAttendance: React.FC<DashboardAttendanceProps> = ({
       )}
 
       {/* Export button for employees */}
-      {userRole === "employee" && (
-        <Row gutter={[8, 8]} style={{ marginBottom: "20px" }}>
-          <Col xs={24}>
+      {(userRole === "admin" || userRole === "employee") && (
+        <Row justify="end" gutter={[8, 8]} style={{ marginBottom: "20px" }}>
+          <Col xs={12} sm={6} md={6} lg={5}>
             <Button
               type="primary"
               size="large"
@@ -3217,7 +3217,7 @@ const DashboardAttendance: React.FC<DashboardAttendanceProps> = ({
                 }}
               >
                 Showing {filteredData.length} of {mergedData.length} records
-                {userRole === "employee" && " (Your Records)"}
+                {userRole === "employee" && ""}
               </div>
             </Spin>
           </Card>

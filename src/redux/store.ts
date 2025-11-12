@@ -1,11 +1,12 @@
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/authSlice";
 import overviewReducer from "./slices/overviewSlice";
-
+import shiftsReducer from "./slices/shiftsSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     overview: overviewReducer,
+    shifts: shiftsReducer,
     // Add other reducers here as you create them
   },
   middleware: (getDefaultMiddleware) =>

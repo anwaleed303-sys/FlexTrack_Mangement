@@ -1745,7 +1745,7 @@ export default function Dashboard() {
           </Card>
         </Col>
 
-        {(userData.userRole === "admin" ||
+        {/* {(userData.userRole === "admin" ||
           userData.userRole === "employee") && (
           <Col xs={24} lg={12}>
             <Card title="Upcoming Shifts" style={{ borderRadius: "12px" }}>
@@ -1806,6 +1806,50 @@ export default function Dashboard() {
                 <Text type="secondary">
                   No approved leave requests at this time
                 </Text>
+              )}
+            </Card>
+          </Col>
+        )} */}
+        {userData.userRole === "employee" && (
+          <Col xs={24} lg={12}>
+            <Card title="Upcoming Shifts" style={{ borderRadius: "12px" }}>
+              {upcomingShifts.length > 0 ? (
+                <div style={{ maxHeight: "240px", overflowY: "auto" }}>
+                  <Space
+                    direction="vertical"
+                    size="middle"
+                    style={{ width: "100%" }}
+                  >
+                    {upcomingShifts.map((shift) => (
+                      <div
+                        key={shift.id}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "12px",
+                          background: "#fafafa",
+                          borderRadius: "8px",
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <Text strong>
+                            {shift.employeeName} - {shift.type}
+                          </Text>
+                          <Text
+                            type="secondary"
+                            style={{ display: "block", fontSize: "12px" }}
+                          >
+                            {shift.time} -{" "}
+                            {shift.approved ? "Approved" : "Pending"}
+                          </Text>
+                        </div>
+                      </div>
+                    ))}
+                  </Space>
+                </div>
+              ) : (
+                <Text type="secondary">No upcoming shifts</Text>
               )}
             </Card>
           </Col>
@@ -2039,58 +2083,60 @@ export default function Dashboard() {
           </>
         )}
 
-        <Col xs={24}>
-          <Card
-            title="Important Announcements"
-            style={{ borderRadius: "12px" }}
-          >
-            {announcements.length === 0 ? (
-              <>
-                <Text strong>No announcements at this time</Text>
-                <Text
-                  type="secondary"
-                  style={{
-                    display: "block",
-                    fontSize: "12px",
-                    marginTop: "4px",
-                  }}
-                >
-                  Check back later for updates
-                </Text>
-              </>
-            ) : (
-              announcements.slice(0, 3).map((announcement) => (
-                <div
-                  key={announcement._id}
-                  style={{
-                    marginBottom: "12px",
-                    paddingBottom: "12px",
-                    borderBottom: "1px solid #f0f0f0",
-                    position: "relative",
-                  }}
-                >
-                  {userData.userRole === "admin" && (
-                    <Button
-                      type="text"
-                      danger
-                      size="small"
-                      onClick={() => handleDeleteAnnouncement(announcement._id)}
-                      loading={loading}
-                      style={{ position: "absolute", right: "0", top: "0" }}
-                    >
-                      Delete
-                    </Button>
-                  )}
-                  <Text
-                    strong
-                    style={{
-                      color: "#0066FF",
-                      display: "block",
-                      paddingRight: "30px",
-                    }}
+        {/* {userData.userRole === "employee" && (
+          <Col xs={24} lg={12}>
+            <Card title="Upcoming Shifts" style={{ borderRadius: "12px" }}>
+              {upcomingShifts.length > 0 ? (
+                <div style={{ maxHeight: "240px", overflowY: "auto" }}>
+                  <Space
+                    direction="vertical"
+                    size="middle"
+                    style={{ width: "100%" }}
                   >
-                    {announcement.title}
-                  </Text>
+                    {upcomingShifts.map((shift) => (
+                      <div
+                        key={shift.id}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "12px",
+                          background: "#fafafa",
+                          borderRadius: "8px",
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <Text strong>
+                            {shift.employeeName} - {shift.type}
+                          </Text>
+                          <Text
+                            type="secondary"
+                            style={{ display: "block", fontSize: "12px" }}
+                          >
+                            {shift.time} -{" "}
+                            {shift.approved ? "Approved" : "Pending"}
+                          </Text>
+                        </div>
+                      </div>
+                    ))}
+                  </Space>
+                </div>
+              ) : (
+                <Text type="secondary">No upcoming shifts</Text>
+              )}
+            </Card>
+          </Col>
+        )} */}
+
+        {userData.userRole === "employee" && (
+          <Col xs={24}>
+            <Card
+              title="Important Announcements"
+              style={{ borderRadius: "12px" }}
+            >
+              {announcements.length === 0 ? (
+                <>
+                  <Text strong>No announcements at this time</Text>
                   <Text
                     type="secondary"
                     style={{
@@ -2099,24 +2145,49 @@ export default function Dashboard() {
                       marginTop: "4px",
                     }}
                   >
-                    {announcement.message}
+                    Check back later for updates
                   </Text>
-                  <Text
-                    type="secondary"
+                </>
+              ) : (
+                announcements.slice(0, 3).map((announcement) => (
+                  <div
+                    key={announcement._id}
                     style={{
-                      display: "block",
-                      fontSize: "11px",
-                      marginTop: "4px",
-                      color: "#8c8c8c",
+                      marginBottom: "12px",
+                      paddingBottom: "12px",
+                      borderBottom: "1px solid #f0f0f0",
                     }}
                   >
-                    {new Date(announcement.createdAt).toLocaleDateString()}
-                  </Text>
-                </div>
-              ))
-            )}
-          </Card>
-        </Col>
+                    <Text strong style={{ color: "#0066FF", display: "block" }}>
+                      {announcement.title}
+                    </Text>
+                    <Text
+                      type="secondary"
+                      style={{
+                        display: "block",
+                        fontSize: "12px",
+                        marginTop: "4px",
+                      }}
+                    >
+                      {announcement.message}
+                    </Text>
+                    <Text
+                      type="secondary"
+                      style={{
+                        display: "block",
+                        fontSize: "11px",
+                        marginTop: "4px",
+                        color: "#8c8c8c",
+                      }}
+                    >
+                      {new Date(announcement.createdAt).toLocaleDateString()}
+                    </Text>
+                  </div>
+                ))
+              )}
+            </Card>
+          </Col>
+        )}
       </Row>
 
       <Modal
