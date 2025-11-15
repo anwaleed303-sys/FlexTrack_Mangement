@@ -2662,6 +2662,7 @@ import {
   Card,
   Typography,
   Select,
+  App,
   message,
   Upload,
   Modal,
@@ -2910,6 +2911,7 @@ const AdminAccessModal = ({
 };
 
 export default function Register() {
+  const { message } = App.useApp();
   const dispatch = useDispatch<AppDispatch>();
   const { loading: authLoading, error } = useSelector(
     (state: RootState) => state.auth

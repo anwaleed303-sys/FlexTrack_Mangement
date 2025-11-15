@@ -341,7 +341,7 @@
 // }
 
 import { useState } from "react";
-import { Form, Input, Button, Card, Typography, message } from "antd";
+import { Form, Input, Button, Card, Typography, message, App } from "antd";
 import { UserOutlined, LockOutlined } from "@ant-design/icons";
 import { useRouter } from "next/router";
 import Head from "next/head";
@@ -359,6 +359,7 @@ interface LoginFormValues {
 }
 
 export default function Login() {
+  const { message } = App.useApp();
   const dispatch = useDispatch<AppDispatch>();
   const { loading: authLoading, error } = useSelector(
     (state: RootState) => state.auth

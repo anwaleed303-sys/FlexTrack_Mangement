@@ -3,12 +3,14 @@ import authReducer from "./slices/authSlice";
 import overviewReducer from "./slices/overviewSlice";
 import shiftsReducer from "./slices/shiftsSlice";
 import exportReducer from "./slices/exportSlice";
+import settingsReducer from "./slices/settingsSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     overview: overviewReducer,
     shifts: shiftsReducer,
     export: exportReducer,
+    settings: settingsReducer,
     // Add other reducers here as you create them
   },
   middleware: (getDefaultMiddleware) =>
