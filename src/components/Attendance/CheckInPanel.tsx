@@ -8,6 +8,7 @@ import {
   Col,
   Modal,
   Table,
+  App,
   message,
   Tag,
   DatePicker,
@@ -59,6 +60,7 @@ interface Employee {
 }
 
 const QuickStatsCards: React.FC = () => {
+  const { message } = App.useApp();
   const [userData, setUserData] = useState<UserData>({
     name: "User",
     userRole: "employee",

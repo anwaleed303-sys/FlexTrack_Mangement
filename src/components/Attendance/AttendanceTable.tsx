@@ -169,6 +169,7 @@ export default function Dashboard() {
       }
     } catch (error: any) {
       console.error("Load weekly attendance error:", error);
+      setWeeklyAttendance([]); // ADD THIS
     }
   };
 
@@ -200,14 +201,17 @@ export default function Dashboard() {
       }
     } catch (error: any) {
       console.error("Load my attendance error:", error);
+      setMyAttendance([]); // ADD THIS
     }
   };
-
+  // In loadMyLeaveRequests function (around line 220-240)
   const loadMyLeaveRequests = async () => {
     try {
       const response = await axiosInstance.get("/leaves/list");
       if (response.data.success) {
-        setRecentLeaves(response.data.data.leaves);
+        // ✅ SAFE: Use optional chaining and default empty array
+        const leaves = response.data.data?.leaves || [];
+        setRecentLeaves(leaves);
 
         // Calculate chart data
         const statusCounts = {
@@ -216,7 +220,8 @@ export default function Dashboard() {
           Rejected: 0,
         };
 
-        response.data.data.leaves.forEach((leave: LeaveRequest) => {
+        // ✅ SAFE: Now leaves is guaranteed to be an array
+        leaves.forEach((leave: LeaveRequest) => {
           if (leave.status in statusCounts) {
             statusCounts[leave.status as keyof typeof statusCounts]++;
           }
@@ -227,15 +232,18 @@ export default function Dashboard() {
           .map(([status, count]) => ({
             name: status,
             value: count,
-            percentage: Math.round(
-              (count / response.data.data.leaves.length) * 100
-            ),
+            // ✅ SAFE: Check if leaves has items before dividing
+            percentage:
+              leaves.length > 0 ? Math.round((count / leaves.length) * 100) : 0,
           }));
 
         setLeaveChartData(chartData);
       }
     } catch (error: any) {
       console.error("Load leave requests error:", error);
+      // ✅ IMPORTANT: Set empty arrays on error
+      setRecentLeaves([]);
+      setLeaveChartData([]);
     }
   };
 
@@ -243,7 +251,9 @@ export default function Dashboard() {
     try {
       const response = await axiosInstance.get("/leaves/upcoming");
       if (response.data.success) {
-        const shifts = response.data.data.leaves.map((leave: any) => ({
+        // ✅ SAFE: Use optional chaining and default empty array
+        const leaves = response.data.data?.leaves || [];
+        const shifts = leaves.map((leave: any) => ({
           id: leave._id,
           type: leave.leaveType,
           time: `${new Date(leave.startDate).toLocaleDateString()} - ${new Date(leave.endDate).toLocaleDateString()}`,
@@ -254,6 +264,7 @@ export default function Dashboard() {
       }
     } catch (error: any) {
       console.error("Load upcoming leaves error:", error);
+      setUpcomingShifts([]);
     }
   };
 
@@ -261,10 +272,13 @@ export default function Dashboard() {
     try {
       const response = await axiosInstance.get("/announcements/list");
       if (response.data.success) {
-        setAnnouncements(response.data.data.announcements);
+        // ✅ SAFE: Use optional chaining and default empty array
+        const announcements = response.data.data?.announcements || [];
+        setAnnouncements(announcements);
       }
     } catch (error: any) {
       console.error("Load announcements error:", error);
+      setAnnouncements([]);
     }
   };
 

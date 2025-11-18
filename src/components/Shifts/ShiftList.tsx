@@ -3088,6 +3088,7 @@ import {
   Checkbox,
   Spin,
   Empty,
+  App,
 } from "antd";
 import {
   PlusOutlined,
@@ -3169,6 +3170,8 @@ interface ShiftRequest {
 }
 
 const ShiftManagement: React.FC = () => {
+  const { message } = App.useApp();
+
   const dispatch = useDispatch<AppDispatch>();
   const { assignments, requests, departments, loading, error } = useSelector(
     (state: RootState) => state.shifts

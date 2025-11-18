@@ -1,4 +1,31 @@
 import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "../../redux/store";
+import {
+  fetchAllEmployees,
+  fetchAttendanceRecords,
+  fetchAllLeaves,
+  fetchDashboardStats,
+  fetchWeeklyAttendance,
+  fetchDepartmentBreakdown,
+  fetchLeaveStatistics,
+  fetchRecentActivities,
+  calculateWorkHours,
+  checkIn as reduxCheckIn,
+  checkOut as reduxCheckOut,
+  fetchCheckInStatus,
+  createLeaveRequest,
+  grantLeave,
+  grantCompanyLeave,
+  updateLeaveStatus,
+  deleteLeaveRequest as reduxDeleteLeave,
+  setLeaveBalance as reduxSetLeaveBalance,
+  fetchLeaveBalance,
+  resetDashboardState,
+  deleteAttendanceRecord,
+  fetchRecentNotifications,
+  fetchAnnouncements,
+} from "../../redux/slices/dashboardSlice"; // Adjust path to your slice
 import {
   Card,
   Row,
@@ -14,6 +41,7 @@ import {
   Tag,
   message,
   Avatar,
+  App,
   Space,
   Divider,
 } from "antd";
@@ -65,6 +93,7 @@ interface Employee {
 
 interface AttendanceRecord {
   id: number;
+  employeeId: string;
   name: string;
   date: string;
   checkIn: string;
@@ -73,15 +102,27 @@ interface AttendanceRecord {
   status: "present" | "absent";
   workingHours?: number;
 }
-
-interface LeaveRequest {
-  id: number;
+interface ProductivityData {
   name: string;
-  dates: any;
+  value: number;
+  color: string;
+  [key: string]: string | number; // Add index signature
+}
+interface LeaveRequest {
+  _id: string; // ✅ Changed from 'id' to '_id'
+  employeeId?: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  employeeName: string; // ✅ Add this
   leaveType: string;
+  startDate: string; // ✅ Changed from 'dates: any'
+  endDate: string; // ✅ Changed from 'dates: any'
+  totalDays?: number; // ✅ Add this
   reason: string;
-  status: string;
-  date: string;
+  status: "Pending" | "Approved" | "Rejected"; // ✅ Use union type
+  date?: string; // ✅ Make optional
   isCompanyWide?: boolean;
   holidayTitle?: string;
   approvedBy?: string;
@@ -89,7 +130,32 @@ interface LeaveRequest {
   rejectedBy?: string;
   rejectedDate?: string;
   rejectionReason?: string;
+  adminNotes?: string;
+  reviewedBy?: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  reviewedAt?: string;
+  createdAt?: string;
 }
+// interface LeaveRequest {
+//   _id: string;
+//   id: string;
+//   name: string;
+//   dates: any;
+//   leaveType: string;
+//   reason: string;
+//   status: string;
+//   date: string;
+//   isCompanyWide?: boolean;
+//   holidayTitle?: string;
+//   approvedBy?: string;
+//   approvedDate?: string;
+//   rejectedBy?: string;
+//   rejectedDate?: string;
+//   rejectionReason?: string;
+// }
 interface Activity {
   id: string;
   employee: string;
@@ -105,13 +171,31 @@ const COLORS = {
 };
 
 export default function AttendanceDashboard() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const { message } = App.useApp();
+  const dispatch = useDispatch<AppDispatch>();
+
+  // Redux Selectors
+  const {
+    employees,
+    attendanceRecords,
+    leaveRequests,
+    statsData,
+    weeklyAttendance,
+    productivityData,
+    leaveChartData,
+    activities,
+    workHoursSummary,
+    checkInStatus,
+    pendingLeaveCount,
+    loading,
+    leaveBalances,
+    statsLoading,
+    attendanceLoading,
+    leaveLoading,
+    error,
+  } = useSelector((state: RootState) => state.dashboard);
+
   const [jsPDFLib, setJsPDFLib] = useState<any>(null);
-  const [attendanceRecords, setAttendanceRecords] = useState<
-    AttendanceRecord[]
-  >([]);
-  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
   const [showAllActivities, setShowAllActivities] = useState(false);
   const [loggedInUser, setLoggedInUser] = useState<any>({});
   const [activitySearchText, setActivitySearchText] = useState("");
@@ -125,29 +209,6 @@ export default function AttendanceDashboard() {
     useState<string>("");
   const [leaveBalanceForm] = Form.useForm();
 
-  const [statsData, setStatsData] = useState({
-    totalEmployees: 0,
-    presentToday: 0,
-    absentees: 0,
-  });
-
-  const [weeklyAttendance, setWeeklyAttendance] = useState([
-    { day: "Mon", present: 0, absent: 0 },
-    { day: "Tue", present: 0, absent: 0 },
-    { day: "Wed", present: 0, absent: 0 },
-    { day: "Thu", present: 0, absent: 0 },
-    { day: "Fri", present: 0, absent: 0 },
-    { day: "Sat", present: 0, absent: 0 },
-    { day: "Sun", present: 0, absent: 0 },
-  ]);
-
-  const [productivityData, setProductivityData] = useState<any[]>([]);
-  const [workHoursSummary, setWorkHoursSummary] = useState({
-    average: "0h 0m",
-    total: 0,
-  });
-  const [leaveChartData, setLeaveChartData] = useState<any[]>([]);
-
   const [adminAccessModal, setAdminAccessModal] = useState(false);
   const [currentAction, setCurrentAction] = useState<
     "leave" | "approve" | "export" | null
@@ -159,9 +220,10 @@ export default function AttendanceDashboard() {
   const [searchText, setSearchText] = useState("");
   const [reportModal, setReportModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
-  const [isUserCheckedIn, setIsUserCheckedIn] = useState(false);
-  const [userCheckInTime, setUserCheckInTime] = useState<string | null>(null);
-  const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
+  // Remove these lines - use Redux state instead
+  const isUserCheckedIn = checkInStatus.isCheckedIn;
+  const userCheckInTime = checkInStatus.checkInTime;
+
   const [leaveMode, setLeaveMode] = useState<"individual" | "company">(
     "individual"
   );
@@ -170,36 +232,51 @@ export default function AttendanceDashboard() {
   const [adminForm] = Form.useForm();
 
   useEffect(() => {
-    // Load logged in user
     const user = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
     setLoggedInUser(user);
+    dispatch(resetDashboardState());
 
     loadData();
 
-    // Calculate pending leave count
-    const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
-    const pendingCount = leaves.filter(
-      (l: LeaveRequest) => l.status === "Pending" && !l.isCompanyWide // 👈 ADD THIS
-    ).length;
-    setPendingLeaveCount(pendingCount);
-    // Refresh activities every 30 seconds
-    const activityInterval = setInterval(() => {
-      const attRecords: AttendanceRecord[] = JSON.parse(
-        localStorage.getItem("attendanceRecords") || "[]"
-      );
-      const leaves: LeaveRequest[] = JSON.parse(
-        localStorage.getItem("leaveRequests") || "[]"
-      );
-      loadActivities(attRecords, leaves);
-      // Update pending count
-      const pendingCount = leaves.filter(
-        (l: LeaveRequest) => l.status === "Pending" && !l.isCompanyWide // 👈 ADD THIS
-      ).length;
-      setPendingLeaveCount(pendingCount);
+    // Refresh data every 30 seconds
+    const interval = setInterval(() => {
+      dispatch(fetchRecentActivities());
+      dispatch(fetchDashboardStats());
     }, 30000);
 
-    return () => clearInterval(activityInterval);
-  }, []);
+    return () => clearInterval(interval);
+  }, [dispatch]);
+  // useEffect(() => {
+  //   // Load logged in user
+  //   const user = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
+  //   setLoggedInUser(user);
+
+  //   loadData();
+
+  //   // Calculate pending leave count
+  //   const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
+  //   const pendingCount = leaves.filter(
+  //     (l: LeaveRequest) => l.status === "Pending" && !l.isCompanyWide // 👈 ADD THIS
+  //   ).length;
+  //   setPendingLeaveCount(pendingCount);
+  //   // Refresh activities every 30 seconds
+  //   const activityInterval = setInterval(() => {
+  //     const attRecords: AttendanceRecord[] = JSON.parse(
+  //       localStorage.getItem("attendanceRecords") || "[]"
+  //     );
+  //     const leaves: LeaveRequest[] = JSON.parse(
+  //       localStorage.getItem("leaveRequests") || "[]"
+  //     );
+  //     loadActivities(attRecords, leaves);
+  //     // Update pending count
+  //     const pendingCount = leaves.filter(
+  //       (l: LeaveRequest) => l.status === "Pending" && !l.isCompanyWide // 👈 ADD THIS
+  //     ).length;
+  //     setPendingLeaveCount(pendingCount);
+  //   }, 30000);
+
+  //   return () => clearInterval(activityInterval);
+  // }, []);
 
   useEffect(() => {
     const script = document.createElement("script");
@@ -221,12 +298,19 @@ export default function AttendanceDashboard() {
   }, []);
 
   // ✅ CSV Download
+  // ✅ CSV Download - Update handleDownloadCSV function
   const handleDownloadCSV = () => {
     try {
-      const today = new Date().toLocaleDateString("en-US");
-      const presentToday = attendanceRecords.filter(
-        (r) => r.date === today && r.status === "present"
-      );
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const presentToday = attendanceRecords.filter((r) => {
+        const recordDate = new Date(r.date);
+        recordDate.setHours(0, 0, 0, 0);
+        return (
+          recordDate.getTime() === today.getTime() && r.status === "Present"
+        );
+      });
 
       if (presentToday.length === 0) {
         message.warning("No employees present today!");
@@ -243,9 +327,9 @@ export default function AttendanceDashboard() {
       ];
 
       const rows = presentToday.map((record) => {
-        const emp = employees.find((e) => e.name === record.name);
+        const emp = employees.find((e) => e.name === record.employeeId.name);
         return [
-          record.name,
+          record.employeeId.name,
           emp?.specificRole || "N/A",
           emp?.shift || "N/A",
           record.checkIn || "N/A",
@@ -285,7 +369,7 @@ export default function AttendanceDashboard() {
     try {
       const today = new Date().toLocaleDateString("en-US");
       const presentToday = attendanceRecords.filter(
-        (r) => r.date === today && r.status === "present"
+        (r) => r.date === today && r.status === "Present"
       );
 
       if (presentToday.length === 0) {
@@ -315,7 +399,7 @@ export default function AttendanceDashboard() {
 
       let yPos = 45;
       presentToday.forEach((record, index) => {
-        const emp = employees.find((e) => e.name === record.name);
+        const emp = employees.find((e) => e.name === record.employeeId.name);
         if (yPos > 270) {
           doc.addPage();
           yPos = 20;
@@ -336,7 +420,7 @@ export default function AttendanceDashboard() {
 
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
-        doc.text(`Name: ${record.name}`, 20, yPos);
+        doc.text(`Name: ${record.employeeId.name}`, 20, yPos);
         yPos += 5;
         doc.text(`Role: ${emp?.specificRole || "N/A"}`, 20, yPos);
         yPos += 5;
@@ -364,52 +448,92 @@ export default function AttendanceDashboard() {
     }
   };
 
-  const loadData = () => {
-    const empData: Employee[] = JSON.parse(
-      localStorage.getItem("employees") || "[]"
-    );
-    const attRecords: AttendanceRecord[] = JSON.parse(
-      localStorage.getItem("attendanceRecords") || "[]"
-    );
-    const leaves: LeaveRequest[] = JSON.parse(
-      localStorage.getItem("leaveRequests") || "[]"
-    );
+  // const loadData = () => {
+  //   const empData: Employee[] = JSON.parse(
+  //     localStorage.getItem("employees") || "[]"
+  //   );
+  //   const attRecords: AttendanceRecord[] = JSON.parse(
+  //     localStorage.getItem("attendanceRecords") || "[]"
+  //   );
+  //   const leaves: LeaveRequest[] = JSON.parse(
+  //     localStorage.getItem("leaveRequests") || "[]"
+  //   );
 
-    setEmployees(empData);
-    setAttendanceRecords(attRecords);
-    setLeaveRequests(leaves);
-    const pendingCount = leaves.filter(
-      (l: LeaveRequest) => l.status === "Pending"
-    ).length;
-    setPendingLeaveCount(pendingCount);
+  //   setEmployees(empData);
+  //   setAttendanceRecords(attRecords);
+  //   setLeaveRequests(leaves);
+  //   const pendingCount = leaves.filter(
+  //     (l: LeaveRequest) => l.status === "Pending"
+  //   ).length;
+  //   setPendingLeaveCount(pendingCount);
 
-    // Load current user's check-in status
-    // Load current user's check-in status
-    const loggedUser = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
-    if (loggedUser.name) {
-      const savedCheckIn = localStorage.getItem("checkInData");
-      if (savedCheckIn) {
-        const checkInData = JSON.parse(savedCheckIn);
-        const checkInDate = new Date(checkInData.checkInTime);
-        const today = new Date();
-        if (
-          checkInDate.toDateString() === today.toDateString() &&
-          checkInData.isCheckedIn
-        ) {
-          setIsUserCheckedIn(true);
-          setUserCheckInTime(checkInData.checkInTime);
-        }
-      }
+  //   // Load current user's check-in status
+  //   // Load current user's check-in status
+  //   const loggedUser = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
+  //   if (loggedUser.name) {
+  //     const savedCheckIn = localStorage.getItem("checkInData");
+  //     if (savedCheckIn) {
+  //       const checkInData = JSON.parse(savedCheckIn);
+  //       const checkInDate = new Date(checkInData.checkInTime);
+  //       const today = new Date();
+  //       if (
+  //         checkInDate.toDateString() === today.toDateString() &&
+  //         checkInData.isCheckedIn
+  //       ) {
+  //         setIsUserCheckedIn(true);
+  //         setUserCheckInTime(checkInData.checkInTime);
+  //       }
+  //     }
+  //   }
+
+  //   calculateStats(empData, attRecords);
+  //   calculateWeeklyAttendance(attRecords);
+  //   calculateProductivity(empData);
+  //   calculateWorkHours(attRecords);
+  //   loadActivities(attRecords, leaves);
+  //   calculateLeaveStats(leaves);
+  // };
+
+  const loadData = async () => {
+    try {
+      await Promise.all([
+        dispatch(fetchAllEmployees()),
+        dispatch(fetchAttendanceRecords({})),
+        dispatch(fetchAllLeaves()),
+        dispatch(fetchDashboardStats()),
+        dispatch(fetchWeeklyAttendance()),
+        dispatch(fetchDepartmentBreakdown()),
+        dispatch(fetchLeaveStatistics()),
+        dispatch(fetchRecentActivities()),
+        dispatch(calculateWorkHours()),
+        dispatch(fetchCheckInStatus()),
+        dispatch(fetchRecentNotifications()),
+        dispatch(fetchAnnouncements()),
+      ]);
+    } catch (error) {
+      console.error("Failed to load dashboard data:", error);
+      message.error("Failed to load dashboard data");
     }
-
-    calculateStats(empData, attRecords);
-    calculateWeeklyAttendance(attRecords);
-    calculateProductivity(empData);
-    calculateWorkHours(attRecords);
-    loadActivities(attRecords, leaves);
-    calculateLeaveStats(leaves);
   };
-
+  // const loadData = async () => {
+  //   try {
+  //     await Promise.all([
+  //       dispatch(fetchAllEmployees()),
+  //       dispatch(fetchAttendanceRecords({})),
+  //       dispatch(fetchAllLeaves()),
+  //       dispatch(fetchDashboardStats()),
+  //       dispatch(fetchWeeklyAttendance()),
+  //       dispatch(fetchDepartmentBreakdown()),
+  //       dispatch(fetchLeaveStatistics()),
+  //       dispatch(fetchRecentActivities()),
+  //       dispatch(calculateWorkHours()),
+  //       dispatch(fetchCheckInStatus()),
+  //     ]);
+  //   } catch (error) {
+  //     console.error("Failed to load dashboard data:", error);
+  //     message.error("Failed to load dashboard data");
+  //   }
+  // };
   const sendNotificationToEmployee = (
     employeeName: string,
     type: "leave_status" | "company_announcement" | "company_leave",
@@ -439,279 +563,100 @@ export default function AttendanceDashboard() {
       JSON.stringify(employeeNotifications)
     );
   };
-  const calculateStats = (
-    empData: Employee[],
-    attRecords: AttendanceRecord[]
-  ) => {
-    const today = new Date().toLocaleDateString("en-US");
-    const todayRecords = attRecords.filter((r) => r.date === today);
 
-    const present = todayRecords.filter((r) => r.status === "present").length;
-    const absent = empData.length - present;
-
-    setStatsData({
-      totalEmployees: empData.length,
-      presentToday: present,
-      absentees: absent,
-    });
-  };
-
-  const calculateWeeklyAttendance = (attRecords: AttendanceRecord[]) => {
-    const weekData = [
-      { day: "Mon", present: 0, absent: 0 },
-      { day: "Tue", present: 0, absent: 0 },
-      { day: "Wed", present: 0, absent: 0 },
-      { day: "Thu", present: 0, absent: 0 },
-      { day: "Fri", present: 0, absent: 0 },
-      { day: "Sat", present: 0, absent: 0 },
-      { day: "Sun", present: 0, absent: 0 },
-    ];
-
-    const today = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toLocaleDateString("en-US");
-      const dayIndex = date.getDay();
-      const adjustedIndex = dayIndex === 0 ? 6 : dayIndex - 1;
-
-      const dayRecords = attRecords.filter((r) => r.date === dateStr);
-      weekData[adjustedIndex].present = dayRecords.filter(
-        (r) => r.status === "present"
-      ).length;
-      weekData[adjustedIndex].absent = dayRecords.filter(
-        (r) => r.status === "absent"
-      ).length;
+  const handleDeleteLeaveRequest = async (leaveId: string) => {
+    try {
+      await dispatch(reduxDeleteLeave(leaveId)).unwrap();
+      message.success("Leave request deleted successfully!");
+      await dispatch(fetchAllLeaves());
+    } catch (error: any) {
+      message.error(error || "Failed to delete leave request");
     }
-
-    setWeeklyAttendance(weekData);
   };
+  // const handleDeleteLeaveRequest = (leaveId: number) => {
+  //   const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
+  //   const updated = leaves.filter((l: LeaveRequest) => l.id !== leaveId);
+  //   localStorage.setItem("leaveRequests", JSON.stringify(updated));
 
-  const calculateProductivity = (empData: Employee[]) => {
-    const departments: any = {};
-    empData.forEach((emp) => {
-      const dept = emp.specificRole || "Other";
-      departments[dept] = (departments[dept] || 0) + 1;
-    });
-
-    const colors = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444"];
-    const data = Object.entries(departments).map(([name, count], index) => ({
-      name,
-      value: count as number,
-      color: colors[index % colors.length],
-    }));
-
-    setProductivityData(data);
-  };
-
-  const calculateWorkHours = (attRecords: AttendanceRecord[]) => {
-    const today = new Date();
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - 7);
-
-    const weekRecords = attRecords.filter((r) => {
-      const recordDate = new Date(r.date);
-      return (
-        recordDate >= weekStart &&
-        r.status === "present" &&
-        r.workingTime !== "-"
-      );
-    });
-
-    let totalMinutes = 0;
-    weekRecords.forEach((r) => {
-      const match = r.workingTime.match(/(\d+)h\s*(\d+)m/);
-      if (match) {
-        totalMinutes += parseInt(match[1]) * 60 + parseInt(match[2]);
-      }
-    });
-
-    const avgMinutes =
-      weekRecords.length > 0
-        ? Math.round(totalMinutes / weekRecords.length)
-        : 0;
-    const hours = Math.floor(avgMinutes / 60);
-    const minutes = avgMinutes % 60;
-
-    setWorkHoursSummary({
-      average: `${hours}h ${minutes}m`,
-      total: weekRecords.length,
-    });
-  };
-
-  const loadActivities = (
-    attRecords: AttendanceRecord[],
-    leaves: LeaveRequest[]
-  ) => {
-    const acts: any[] = [];
-
-    // Get activities from last 24 hours
-    const last24Hours = new Date();
-    last24Hours.setHours(last24Hours.getHours() - 24);
-
-    attRecords
-      .filter((r) => {
-        if (!r.checkIn || r.checkIn === "-") return false;
-        const recordTime = new Date(r.checkIn);
-        return r.status === "present" && recordTime >= last24Hours;
-      })
-      .forEach((r) => {
-        // Add check-in activity
-        acts.push({
-          id: `att-in-${r.id}`,
-          employee: r.name,
-          action: "checked in",
-          time: new Date(r.checkIn).toLocaleTimeString("en-US", {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          timestamp: new Date(r.checkIn).getTime(),
-          type: "checkin",
-        });
-
-        // Add check-out activity if exists
-        if (r.checkOut && r.checkOut !== "" && r.checkOut !== "In Progress") {
-          const checkOutTime = new Date(r.date + " " + r.checkOut);
-          if (checkOutTime >= last24Hours) {
-            acts.push({
-              id: `att-out-${r.id}`,
-              employee: r.name,
-              action: "checked out",
-              time: r.checkOut,
-              timestamp: checkOutTime.getTime(),
-              type: "checkout",
-            });
-          }
-        }
-      });
-
-    leaves
-      .filter((l) => {
-        const leaveTime = new Date(l.date);
-        return leaveTime >= last24Hours;
-      })
-      .forEach((l) => {
-        acts.push({
-          id: `leave-${l.id}`,
-          employee: l.name,
-          action: "submitted leave request",
-          time: new Date(l.date).toLocaleTimeString("en-US", {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          timestamp: new Date(l.date).getTime(),
-          type: "leave",
-        });
-      });
-
-    // Load admin activities from localStorage
-    const adminActivities = JSON.parse(
-      localStorage.getItem("adminActivities") || "[]"
-    );
-
-    adminActivities
-      .filter((a: any) => {
-        const activityTime = new Date(a.time);
-        return activityTime >= last24Hours;
-      })
-      .forEach((a: any) => {
-        acts.push({
-          id: a.id,
-          employee: a.employee,
-          action: a.action,
-          time: new Date(a.time).toLocaleTimeString("en-US", {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          timestamp: new Date(a.time).getTime(),
-          type: a.type,
-        });
-      });
-
-    // Sort by timestamp (most recent first)
-    acts.sort((a, b) => b.timestamp - a.timestamp);
-
-    setActivities(acts);
-  };
-
-  const calculateLeaveStats = (leaves: LeaveRequest[]) => {
-    const statusCounts: any = { Approved: 0, Pending: 0, Rejected: 0 };
-    leaves.forEach((l) => {
-      if (l.status in statusCounts) statusCounts[l.status]++;
-    });
-
-    const data = Object.entries(statusCounts)
-      // .filter(([_, count]) => count > 0)
-      .map(([status, count]) => ({
-        name: status,
-        value: count as number,
-      }));
-
-    setLeaveChartData(data);
-  };
-
-  const handleDeleteLeaveRequest = (leaveId: number) => {
-    const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
-    const updated = leaves.filter((l: LeaveRequest) => l.id !== leaveId);
-    localStorage.setItem("leaveRequests", JSON.stringify(updated));
-
-    message.success("Leave request deleted successfully!");
-    loadData();
-  };
-  const handleCheckIn = () => {
+  //   message.success("Leave request deleted successfully!");
+  //   loadData();
+  // };
+  const handleCheckIn = async () => {
     const loggedUser = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
     if (!loggedUser.name) {
       message.error("Please login first!");
       return;
     }
 
-    // Only employees can check in
     if (loggedUser.userRole !== "employee") {
       message.error("Only employees can mark attendance!");
       return;
     }
-    const now = new Date();
-    const today = now.toLocaleDateString("en-US");
-    const existingRecords = JSON.parse(
-      localStorage.getItem("attendanceRecords") || "[]"
-    );
 
-    const todayRecord = existingRecords.find(
-      (r: AttendanceRecord) => r.name === loggedUser.name && r.date === today
-    );
-
-    if (todayRecord && todayRecord.status === "present") {
-      message.warning("You have already checked in today!");
-      return;
+    try {
+      await dispatch(reduxCheckIn()).unwrap();
+      message.success("Checked in successfully!");
+      await dispatch(fetchCheckInStatus());
+      await dispatch(fetchAttendanceRecords({}));
+      await dispatch(fetchRecentActivities());
+    } catch (error: any) {
+      message.error(error || "Failed to check in");
     }
-
-    const newRecord: AttendanceRecord = {
-      id: Date.now(),
-      name: loggedUser.name,
-      date: today,
-      checkIn: now.toISOString(),
-      checkOut: "",
-      workingTime: "-",
-      status: "present",
-    };
-
-    existingRecords.push(newRecord);
-    localStorage.setItem("attendanceRecords", JSON.stringify(existingRecords));
-    localStorage.setItem(
-      "checkInData",
-      JSON.stringify({
-        checkInTime: now.toISOString(),
-        isCheckedIn: true,
-      })
-    );
-
-    setIsUserCheckedIn(true);
-    setUserCheckInTime(now.toISOString());
-    message.success("Checked in successfully!");
-    loadData();
   };
+  // const handleCheckIn = () => {
+  //   const loggedUser = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
+  //   if (!loggedUser.name) {
+  //     message.error("Please login first!");
+  //     return;
+  //   }
 
-  const handleCheckOut = () => {
+  //   // Only employees can check in
+  //   if (loggedUser.userRole !== "employee") {
+  //     message.error("Only employees can mark attendance!");
+  //     return;
+  //   }
+  //   const now = new Date();
+  //   const today = now.toLocaleDateString("en-US");
+  //   const existingRecords = JSON.parse(
+  //     localStorage.getItem("attendanceRecords") || "[]"
+  //   );
+
+  //   const todayRecord = existingRecords.find(
+  //     (r: AttendanceRecord) => r.name === loggedUser.name && r.date === today
+  //   );
+
+  //   if (todayRecord && todayRecord.status === "present") {
+  //     message.warning("You have already checked in today!");
+  //     return;
+  //   }
+
+  //   const newRecord: AttendanceRecord = {
+  //     id: Date.now(),
+  //     name: loggedUser.name,
+  //     date: today,
+  //     checkIn: now.toISOString(),
+  //     checkOut: "",
+  //     workingTime: "-",
+  //     status: "present",
+  //   };
+
+  //   existingRecords.push(newRecord);
+  //   localStorage.setItem("attendanceRecords", JSON.stringify(existingRecords));
+  //   localStorage.setItem(
+  //     "checkInData",
+  //     JSON.stringify({
+  //       checkInTime: now.toISOString(),
+  //       isCheckedIn: true,
+  //     })
+  //   );
+
+  //   setIsUserCheckedIn(true);
+  //   setUserCheckInTime(now.toISOString());
+  //   message.success("Checked in successfully!");
+  //   loadData();
+  // };
+
+  const handleCheckOut = async () => {
     const loggedUser = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
     if (!loggedUser.name) {
       message.error("Please login first!");
@@ -723,53 +668,75 @@ export default function AttendanceDashboard() {
       return;
     }
 
-    const now = new Date();
-    const todayDate = new Date().toLocaleDateString("en-US");
-
-    if (userCheckInTime) {
-      const checkIn = new Date(userCheckInTime);
-      const diff = now.getTime() - checkIn.getTime();
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      const workingTime = `${hours}h ${minutes}m ${seconds}s`;
-
-      // Update attendance record
-      const records: AttendanceRecord[] = JSON.parse(
-        localStorage.getItem("attendanceRecords") || "[]"
-      );
-
-      const recordIndex = records.findIndex(
-        (record) =>
-          record.date === todayDate &&
-          record.name === loggedUser.name &&
-          record.status === "present"
-      );
-
-      if (recordIndex !== -1) {
-        records[recordIndex].checkOut = now.toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-        });
-        records[recordIndex].workingTime = workingTime;
-        localStorage.setItem("attendanceRecords", JSON.stringify(records));
-      }
-
-      // Update check-in data
-      const checkInData = {
-        isCheckedIn: false,
-        checkInTime: userCheckInTime,
-        checkOutTime: now.toISOString(),
-      };
-      localStorage.setItem("checkInData", JSON.stringify(checkInData));
-
-      setIsUserCheckedIn(false);
-      setUserCheckInTime(null);
+    try {
+      await dispatch(reduxCheckOut()).unwrap();
       message.success("Checked out successfully!");
-      loadData();
+      await dispatch(fetchCheckInStatus());
+      await dispatch(fetchAttendanceRecords({}));
+      await dispatch(fetchRecentActivities());
+    } catch (error: any) {
+      message.error(error || "Failed to check out");
     }
   };
+  // const handleCheckOut = () => {
+  //   const loggedUser = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
+  //   if (!loggedUser.name) {
+  //     message.error("Please login first!");
+  //     return;
+  //   }
+
+  //   if (loggedUser.userRole !== "employee") {
+  //     message.error("Only employees can check out!");
+  //     return;
+  //   }
+
+  //   const now = new Date();
+  //   const todayDate = new Date().toLocaleDateString("en-US");
+
+  //   if (userCheckInTime) {
+  //     const checkIn = new Date(userCheckInTime);
+  //     const diff = now.getTime() - checkIn.getTime();
+  //     const hours = Math.floor(diff / (1000 * 60 * 60));
+  //     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  //     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+  //     const workingTime = `${hours}h ${minutes}m ${seconds}s`;
+
+  //     // Update attendance record
+  //     const records: AttendanceRecord[] = JSON.parse(
+  //       localStorage.getItem("attendanceRecords") || "[]"
+  //     );
+
+  //     const recordIndex = records.findIndex(
+  //       (record) =>
+  //         record.date === todayDate &&
+  //         record.name === loggedUser.name &&
+  //         record.status === "present"
+  //     );
+
+  //     if (recordIndex !== -1) {
+  //       records[recordIndex].checkOut = now.toLocaleTimeString("en-US", {
+  //         hour: "2-digit",
+  //         minute: "2-digit",
+  //         hour12: true,
+  //       });
+  //       records[recordIndex].workingTime = workingTime;
+  //       localStorage.setItem("attendanceRecords", JSON.stringify(records));
+  //     }
+
+  //     // Update check-in data
+  //     const checkInData = {
+  //       isCheckedIn: false,
+  //       checkInTime: userCheckInTime,
+  //       checkOutTime: now.toISOString(),
+  //     };
+  //     localStorage.setItem("checkInData", JSON.stringify(checkInData));
+
+  //     setIsUserCheckedIn(false);
+  //     setUserCheckInTime(null);
+  //     message.success("Checked out successfully!");
+  //     loadData();
+  //   }
+  // };
 
   const verifyAdmin = async (values: { password: string }) => {
     const adminData = JSON.parse(localStorage.getItem("adminData") || "{}");
@@ -847,12 +814,11 @@ export default function AttendanceDashboard() {
   };
 
   // Get employee current balance
+  // Replace the getEmployeeBalance function with:
   const getEmployeeBalance = (employeeName: string) => {
-    const leaveBalances = JSON.parse(
-      localStorage.getItem("employeeLeaveBalances") || "{}"
-    );
+    const balance = leaveBalances[employeeName];
     return (
-      leaveBalances[employeeName] || {
+      balance || {
         totalLeaves: 20,
         usedLeaves: 0,
         remainingLeaves: 20,
@@ -861,45 +827,67 @@ export default function AttendanceDashboard() {
   };
 
   // Set custom leave balance for employee
-  const handleSetLeaveBalance = (values: any) => {
-    const leaveBalances = JSON.parse(
-      localStorage.getItem("employeeLeaveBalances") || "{}"
-    );
+  // const handleSetLeaveBalance = (values: any) => {
+  //   const leaveBalances = JSON.parse(
+  //     localStorage.getItem("employeeLeaveBalances") || "{}"
+  //   );
 
-    const employeeName = values.employeeName;
-    const totalLeaves = parseInt(values.totalLeaves);
+  //   const employeeName = values.employeeName;
+  //   const totalLeaves = parseInt(values.totalLeaves);
 
-    // Get current used leaves if exists
-    const currentUsed = leaveBalances[employeeName]?.usedLeaves || 0;
+  //   // Get current used leaves if exists
+  //   const currentUsed = leaveBalances[employeeName]?.usedLeaves || 0;
 
-    leaveBalances[employeeName] = {
-      totalLeaves: totalLeaves,
-      usedLeaves: currentUsed,
-      remainingLeaves: totalLeaves - currentUsed,
-    };
+  //   leaveBalances[employeeName] = {
+  //     totalLeaves: totalLeaves,
+  //     usedLeaves: currentUsed,
+  //     remainingLeaves: totalLeaves - currentUsed,
+  //   };
 
-    localStorage.setItem(
-      "employeeLeaveBalances",
-      JSON.stringify(leaveBalances)
-    );
+  //   localStorage.setItem(
+  //     "employeeLeaveBalances",
+  //     JSON.stringify(leaveBalances)
+  //   );
 
-    // Send notification to employee
-    sendNotificationToEmployee(
-      employeeName,
-      "company_announcement",
-      "📋 Leave Balance Updated",
-      `Your annual leave balance has been set to ${totalLeaves} days by admin.`,
-      undefined
-    );
+  //   // Send notification to employee
+  //   sendNotificationToEmployee(
+  //     employeeName,
+  //     "company_announcement",
+  //     "📋 Leave Balance Updated",
+  //     `Your annual leave balance has been set to ${totalLeaves} days by admin.`,
+  //     undefined
+  //   );
 
-    message.success(
-      `Leave balance set for ${employeeName}: ${totalLeaves} days`
-    );
-    setLeaveBalanceModal(false);
-    leaveBalanceForm.resetFields();
-    setSelectedEmployeeForBalance("");
+  //   message.success(
+  //     `Leave balance set for ${employeeName}: ${totalLeaves} days`
+  //   );
+  //   setLeaveBalanceModal(false);
+  //   leaveBalanceForm.resetFields();
+  //   setSelectedEmployeeForBalance("");
+  // };
+
+  const handleSetLeaveBalance = async (values: any) => {
+    try {
+      await dispatch(
+        reduxSetLeaveBalance({
+          employeeName: values.employeeName,
+          totalLeaves: parseInt(values.totalLeaves),
+        })
+      ).unwrap();
+
+      // ✅ Fetch the updated balance to show in UI
+      await dispatch(fetchLeaveBalance(values.employeeName));
+
+      message.success(
+        `Leave balance set for ${values.employeeName}: ${values.totalLeaves} days`
+      );
+      setLeaveBalanceModal(false);
+      leaveBalanceForm.resetFields();
+      setSelectedEmployeeForBalance("");
+    } catch (error: any) {
+      message.error(error || "Failed to set leave balance");
+    }
   };
-
   // Get employee shift information
   const getEmployeeShiftInfo = (employee: Employee) => {
     const today = new Date();
@@ -987,308 +975,382 @@ export default function AttendanceDashboard() {
     return stats;
   };
 
-  const handleLeaveSubmit = (values: any) => {
-    const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
-
-    if (leaveMode === "company") {
-      const announcementId = `announce_${Date.now()}`;
-
-      // Company-wide leave
-      const companyLeaves = employees.map((emp) => ({
-        id: Date.now() + Math.random(),
-        name: emp.name,
-        dates: values.dates,
-        leaveType: values.leaveType,
-        reason: values.reason,
-        status: "Approved",
-        date: new Date().toISOString(),
-        isCompanyWide: true,
-        holidayTitle: values.holidayTitle,
-        approvedBy: "Admin",
-        approvedDate: new Date().toISOString(),
-      }));
-
-      leaves.push(...companyLeaves);
-      localStorage.setItem("leaveRequests", JSON.stringify(leaves));
-
-      // Update employee leave balance
-      companyLeaves.forEach((leave) => {
-        updateEmployeeLeaveBalance(leave.name, leave.dates);
-      });
-
-      // Save announcement
-      const announcements = JSON.parse(
-        localStorage.getItem("companyAnnouncements") || "[]"
-      );
-      announcements.unshift({
-        id: announcementId,
-        title: values.holidayTitle,
-        message: values.reason,
-        date: new Date().toISOString(),
-        type: "holiday",
-      });
-      localStorage.setItem(
-        "companyAnnouncements",
-        JSON.stringify(announcements)
-      );
-
-      // Send notification to ALL employees
-      employees.forEach((emp) => {
-        sendNotificationToEmployee(
-          emp.name,
-          "company_leave",
-          `Company Holiday: ${values.holidayTitle}`,
-          `You have been granted ${values.holidayTitle}. ${values.reason}`,
-          companyLeaves[0].id,
-          announcementId
-        );
-      });
-
-      // Log admin activity
-      const adminActivities = JSON.parse(
-        localStorage.getItem("adminActivities") || "[]"
-      );
-      adminActivities.push({
-        id: `admin-company-leave-${Date.now()}`,
-        employee: "All Employees",
-        action: `granted ${values.holidayTitle} (company-wide)`,
-        time: new Date().toISOString(),
-        type: "admin",
-      });
-      localStorage.setItem("adminActivities", JSON.stringify(adminActivities));
-
-      message.success(`${values.holidayTitle} granted to all employees!`);
-    } else {
-      // Individual employee leave - Check balance first
-      const requestedDays = calculateLeaveDays(values.dates);
-      const balanceCheck = checkLeaveBalance(
-        values.employeeName,
-        requestedDays
-      );
-
-      if (!balanceCheck.hasBalance) {
-        message.error(
-          `Cannot grant leave! ${values.employeeName} only has ${balanceCheck.remainingLeaves} days remaining. Requested: ${requestedDays} days.`
-        );
-        return;
+  const handleLeaveSubmit = async (values: any) => {
+    try {
+      if (leaveMode === "company") {
+        await dispatch(
+          grantCompanyLeave({
+            holidayTitle: values.holidayTitle,
+            leaveType: values.leaveType,
+            startDate: values.dates[0].toISOString(),
+            endDate: values.dates[1].toISOString(),
+            reason: values.reason,
+          })
+        ).unwrap();
+        message.success(`${values.holidayTitle} granted to all employees!`);
+      } else {
+        await dispatch(
+          grantLeave({
+            employeeName: values.employeeName,
+            leaveType: values.leaveType,
+            startDate: values.dates[0].toISOString(),
+            endDate: values.dates[1].toISOString(),
+            reason: values.reason,
+          })
+        ).unwrap();
+        message.success("Leave granted successfully!");
       }
 
-      // Admin grants it directly as Approved
-      const newLeave: LeaveRequest = {
-        id: Date.now(),
-        name: values.employeeName,
-        dates: values.dates,
-        leaveType: values.leaveType,
-        reason: values.reason,
-        status: "Approved",
-        date: new Date().toISOString(),
-        approvedBy: "Admin",
-        approvedDate: new Date().toISOString(),
-      };
-      leaves.push(newLeave);
-      localStorage.setItem("leaveRequests", JSON.stringify(leaves));
+      setLeaveModal(false);
+      leaveForm.resetFields();
+      setLeaveMode("individual");
 
-      // Update employee leave balance
-      updateEmployeeLeaveBalance(newLeave.name, newLeave.dates);
-
-      // Send notification to employee
-      sendNotificationToEmployee(
-        values.employeeName,
-        "leave_status",
-        "✅ Leave Approved by Admin",
-        `Your leave request has been approved by admin for ${requestedDays} days.`,
-        newLeave.id
-      );
-
-      // Log admin activity
-      const adminActivities = JSON.parse(
-        localStorage.getItem("adminActivities") || "[]"
-      );
-      adminActivities.push({
-        id: `admin-grant-${newLeave.id}`,
-        employee: values.employeeName,
-        action: "granted leave by admin",
-        time: new Date().toISOString(),
-        type: "admin",
-      });
-      localStorage.setItem("adminActivities", JSON.stringify(adminActivities));
-
-      message.success("Leave granted successfully!");
+      await dispatch(fetchAllLeaves());
+      await dispatch(fetchRecentActivities());
+    } catch (error: any) {
+      message.error(error || "Failed to grant leave");
     }
-
-    setLeaveModal(false);
-    leaveForm.resetFields();
-    setLeaveMode("individual");
-    loadData();
   };
 
-  const handleApproveReject = (leaveId: number, status: string) => {
-    const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
-    const targetLeave = leaves.find((l: LeaveRequest) => l.id === leaveId);
+  // const handleLeaveSubmit = (values: any) => {
+  //   const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
 
-    if (!targetLeave) return;
+  //   if (leaveMode === "company") {
+  //     const announcementId = `announce_${Date.now()}`;
 
-    // If approving, check leave balance
-    if (status === "Approved") {
-      const requestedDays = calculateLeaveDays(targetLeave.dates);
-      const balanceCheck = checkLeaveBalance(targetLeave.name, requestedDays);
+  //     // Company-wide leave
+  //     const companyLeaves = employees.map((emp) => ({
+  //       id: Date.now() + Math.random(),
+  //       name: emp.name,
+  //       dates: values.dates,
+  //       leaveType: values.leaveType,
+  //       reason: values.reason,
+  //       status: "Approved",
+  //       date: new Date().toISOString(),
+  //       isCompanyWide: true,
+  //       holidayTitle: values.holidayTitle,
+  //       approvedBy: "Admin",
+  //       approvedDate: new Date().toISOString(),
+  //     }));
 
-      if (!balanceCheck.hasBalance) {
-        message.error(
-          `Cannot approve! ${targetLeave.name} only has ${balanceCheck.remainingLeaves} days remaining. Requested: ${requestedDays} days.`
-        );
-        return;
-      }
+  //     leaves.push(...companyLeaves);
+  //     localStorage.setItem("leaveRequests", JSON.stringify(leaves));
 
-      // Update leave balance
-      updateEmployeeLeaveBalance(targetLeave.name, targetLeave.dates);
+  //     // Update employee leave balance
+  //     companyLeaves.forEach((leave) => {
+  //       updateEmployeeLeaveBalance(leave.name, leave.dates);
+  //     });
 
-      const updated = leaves.map((l: LeaveRequest) =>
-        l.id === leaveId
-          ? {
-              ...l,
-              status: "Approved",
-              approvedBy: "Admin",
-              approvedDate: new Date().toISOString(),
-            }
-          : l
-      );
-      localStorage.setItem("leaveRequests", JSON.stringify(updated));
+  //     // Save announcement
+  //     const announcements = JSON.parse(
+  //       localStorage.getItem("companyAnnouncements") || "[]"
+  //     );
+  //     announcements.unshift({
+  //       id: announcementId,
+  //       title: values.holidayTitle,
+  //       message: values.reason,
+  //       date: new Date().toISOString(),
+  //       type: "holiday",
+  //     });
+  //     localStorage.setItem(
+  //       "companyAnnouncements",
+  //       JSON.stringify(announcements)
+  //     );
 
-      sendNotificationToEmployee(
-        targetLeave.name,
-        "leave_status",
-        "✅ Leave Approved",
-        `Your leave request for ${requestedDays} days has been approved!`,
-        leaveId
-      );
+  //     // Send notification to ALL employees
+  //     employees.forEach((emp) => {
+  //       sendNotificationToEmployee(
+  //         emp.name,
+  //         "company_leave",
+  //         `Company Holiday: ${values.holidayTitle}`,
+  //         `You have been granted ${values.holidayTitle}. ${values.reason}`,
+  //         companyLeaves[0].id,
+  //         announcementId
+  //       );
+  //     });
 
-      // Log admin activity
-      const adminActivities = JSON.parse(
-        localStorage.getItem("adminActivities") || "[]"
-      );
-      adminActivities.push({
-        id: `admin-approve-${leaveId}-${Date.now()}`,
-        employee: targetLeave.name,
-        action: `leave approved by admin`,
-        time: new Date().toISOString(),
-        type: "admin",
-      });
-      localStorage.setItem("adminActivities", JSON.stringify(adminActivities));
+  //     // Log admin activity
+  //     const adminActivities = JSON.parse(
+  //       localStorage.getItem("adminActivities") || "[]"
+  //     );
+  //     adminActivities.push({
+  //       id: `admin-company-leave-${Date.now()}`,
+  //       employee: "All Employees",
+  //       action: `granted ${values.holidayTitle} (company-wide)`,
+  //       time: new Date().toISOString(),
+  //       type: "admin",
+  //     });
+  //     localStorage.setItem("adminActivities", JSON.stringify(adminActivities));
 
-      message.success("Leave approved successfully!");
-      loadData();
+  //     message.success(`${values.holidayTitle} granted to all employees!`);
+  //   } else {
+  //     // Individual employee leave - Check balance first
+  //     const requestedDays = calculateLeaveDays(values.dates);
+  //     const balanceCheck = checkLeaveBalance(
+  //       values.employeeName,
+  //       requestedDays
+  //     );
+
+  //     if (!balanceCheck.hasBalance) {
+  //       message.error(
+  //         `Cannot grant leave! ${values.employeeName} only has ${balanceCheck.remainingLeaves} days remaining. Requested: ${requestedDays} days.`
+  //       );
+  //       return;
+  //     }
+
+  //     // Admin grants it directly as Approved
+  //     const newLeave: LeaveRequest = {
+  //       id: Date.now(),
+  //       name: values.employeeName,
+  //       dates: values.dates,
+  //       leaveType: values.leaveType,
+  //       reason: values.reason,
+  //       status: "Approved",
+  //       date: new Date().toISOString(),
+  //       approvedBy: "Admin",
+  //       approvedDate: new Date().toISOString(),
+  //     };
+  //     leaves.push(newLeave);
+  //     localStorage.setItem("leaveRequests", JSON.stringify(leaves));
+
+  //     // Update employee leave balance
+  //     updateEmployeeLeaveBalance(newLeave.name, newLeave.dates);
+
+  //     // Send notification to employee
+  //     sendNotificationToEmployee(
+  //       values.employeeName,
+  //       "leave_status",
+  //       "✅ Leave Approved by Admin",
+  //       `Your leave request has been approved by admin for ${requestedDays} days.`,
+  //       newLeave.id
+  //     );
+
+  //     // Log admin activity
+  //     const adminActivities = JSON.parse(
+  //       localStorage.getItem("adminActivities") || "[]"
+  //     );
+  //     adminActivities.push({
+  //       id: `admin-grant-${newLeave.id}`,
+  //       employee: values.employeeName,
+  //       action: "granted leave by admin",
+  //       time: new Date().toISOString(),
+  //       type: "admin",
+  //     });
+  //     localStorage.setItem("adminActivities", JSON.stringify(adminActivities));
+
+  //     message.success("Leave granted successfully!");
+  //   }
+
+  //   setLeaveModal(false);
+  //   leaveForm.resetFields();
+  //   setLeaveMode("individual");
+  //   loadData();
+  // };
+
+  const handleApproveReject = async (leaveId: string, status: string) => {
+    console.log("handleApproveReject called with:", { leaveId, status });
+
+    if (!leaveId || leaveId === "undefined") {
+      message.error("Invalid leave ID!");
       return;
     }
 
-    // If rejecting, show rejection reason modal
-    if (status === "Rejected") {
-      Modal.confirm({
-        title: "Reject Leave Request",
-        content: (
-          <div>
-            <p style={{ marginBottom: "12px" }}>
-              Please provide a reason for rejection:
-            </p>
-            <TextArea
-              id="rejection-reason"
-              rows={4}
-              placeholder="Enter rejection reason..."
-            />
-          </div>
-        ),
-        okText: "Reject Leave",
-        okType: "danger",
-        cancelText: "Cancel",
-        onOk: () => {
-          const reasonElement = document.getElementById(
-            "rejection-reason"
-          ) as HTMLTextAreaElement;
-          const rejectionReason = reasonElement?.value || "No reason provided";
+    try {
+      if (status === "Approved") {
+        await dispatch(
+          updateLeaveStatus({
+            id: leaveId,
+            status: "Approved",
+          })
+        ).unwrap();
+        message.success("Leave approved successfully!");
+        await dispatch(fetchAllLeaves());
+        await dispatch(fetchRecentActivities());
+      } else if (status === "Rejected") {
+        // ✅ DIRECT REJECTION WITHOUT MODAL
+        await dispatch(
+          updateLeaveStatus({
+            id: leaveId,
+            status: "Rejected",
+            adminNotes: "Rejected by admin", // Default reason
+          })
+        ).unwrap();
 
-          const updated = leaves.map((l: LeaveRequest) =>
-            l.id === leaveId
-              ? {
-                  ...l,
-                  status: "Rejected",
-                  rejectionReason: rejectionReason,
-                  rejectedBy: "Admin",
-                  rejectedDate: new Date().toISOString(),
-                }
-              : l
-          );
-          localStorage.setItem("leaveRequests", JSON.stringify(updated));
-
-          // Send notification
-          sendNotificationToEmployee(
-            targetLeave.name,
-            "leave_status",
-            "❌ Leave Rejected",
-            `Your leave request has been rejected. Reason: ${rejectionReason}`,
-            leaveId
-          );
-
-          // Log admin activity
-          const adminActivities = JSON.parse(
-            localStorage.getItem("adminActivities") || "[]"
-          );
-          adminActivities.push({
-            id: `admin-reject-${leaveId}-${Date.now()}`,
-            employee: targetLeave.name,
-            action: `leave rejected by admin: ${rejectionReason}`,
-            time: new Date().toISOString(),
-            type: "admin",
-          });
-          localStorage.setItem(
-            "adminActivities",
-            JSON.stringify(adminActivities)
-          );
-
-          message.success("Leave rejected successfully!");
-          loadData();
-        },
-      });
+        message.success("Leave rejected successfully!");
+        await dispatch(fetchAllLeaves());
+        await dispatch(fetchRecentActivities());
+      }
+    } catch (error: any) {
+      console.error("Error in handleApproveReject:", error);
+      message.error(error || "Failed to update leave status");
     }
   };
-  const handleDeleteActivity = (activityId: string) => {
-    if (activityId.startsWith("admin-")) {
-      // Delete admin activity
-      const adminActivities = JSON.parse(
-        localStorage.getItem("adminActivities") || "[]"
-      );
-      const updated = adminActivities.filter((a: any) => a.id !== activityId);
-      localStorage.setItem("adminActivities", JSON.stringify(updated));
-      message.success("Admin activity deleted successfully!");
-    } else if (activityId.startsWith("att-")) {
-      // Delete attendance record
-      const records = JSON.parse(
-        localStorage.getItem("attendanceRecords") || "[]"
-      );
-      const recordId = parseInt(activityId.split("-")[2]);
-      const updated = records.filter(
-        (r: AttendanceRecord) => r.id !== recordId
-      );
-      localStorage.setItem("attendanceRecords", JSON.stringify(updated));
-      message.success("Attendance record deleted successfully!");
-    } else if (activityId.startsWith("leave-")) {
-      // Delete leave request
-      const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
-      const leaveId = parseInt(activityId.split("-")[1]);
-      const updated = leaves.filter((l: LeaveRequest) => l.id !== leaveId);
-      localStorage.setItem("leaveRequests", JSON.stringify(updated));
-      message.success("Leave request deleted successfully!");
-    } else {
-      message.warning("Cannot delete this activity!");
-    }
+  // const handleApproveReject = (leaveId: number, status: string) => {
+  //   const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
+  //   const targetLeave = leaves.find((l: LeaveRequest) => l.id === leaveId);
 
-    loadData();
+  //   if (!targetLeave) return;
+
+  //   // If approving, check leave balance
+  //   if (status === "Approved") {
+  //     const requestedDays = calculateLeaveDays(targetLeave.dates);
+  //     const balanceCheck = checkLeaveBalance(targetLeave.name, requestedDays);
+
+  //     if (!balanceCheck.hasBalance) {
+  //       message.error(
+  //         `Cannot approve! ${targetLeave.name} only has ${balanceCheck.remainingLeaves} days remaining. Requested: ${requestedDays} days.`
+  //       );
+  //       return;
+  //     }
+
+  //     // Update leave balance
+  //     updateEmployeeLeaveBalance(targetLeave.name, targetLeave.dates);
+
+  //     const updated = leaves.map((l: LeaveRequest) =>
+  //       l.id === leaveId
+  //         ? {
+  //             ...l,
+  //             status: "Approved",
+  //             approvedBy: "Admin",
+  //             approvedDate: new Date().toISOString(),
+  //           }
+  //         : l
+  //     );
+  //     localStorage.setItem("leaveRequests", JSON.stringify(updated));
+
+  //     sendNotificationToEmployee(
+  //       targetLeave.name,
+  //       "leave_status",
+  //       "✅ Leave Approved",
+  //       `Your leave request for ${requestedDays} days has been approved!`,
+  //       leaveId
+  //     );
+
+  //     // Log admin activity
+  //     const adminActivities = JSON.parse(
+  //       localStorage.getItem("adminActivities") || "[]"
+  //     );
+  //     adminActivities.push({
+  //       id: `admin-approve-${leaveId}-${Date.now()}`,
+  //       employee: targetLeave.name,
+  //       action: `leave approved by admin`,
+  //       time: new Date().toISOString(),
+  //       type: "admin",
+  //     });
+  //     localStorage.setItem("adminActivities", JSON.stringify(adminActivities));
+
+  //     message.success("Leave approved successfully!");
+  //     loadData();
+  //     return;
+  //   }
+
+  //   // If rejecting, show rejection reason modal
+  //   if (status === "Rejected") {
+  //     Modal.confirm({
+  //       title: "Reject Leave Request",
+  //       content: (
+  //         <div>
+  //           <p style={{ marginBottom: "12px" }}>
+  //             Please provide a reason for rejection:
+  //           </p>
+  //           <TextArea
+  //             id="rejection-reason"
+  //             rows={4}
+  //             placeholder="Enter rejection reason..."
+  //           />
+  //         </div>
+  //       ),
+  //       okText: "Reject Leave",
+  //       okType: "danger",
+  //       cancelText: "Cancel",
+  //       onOk: () => {
+  //         const reasonElement = document.getElementById(
+  //           "rejection-reason"
+  //         ) as HTMLTextAreaElement;
+  //         const rejectionReason = reasonElement?.value || "No reason provided";
+
+  //         const updated = leaves.map((l: LeaveRequest) =>
+  //           l.id === leaveId
+  //             ? {
+  //                 ...l,
+  //                 status: "Rejected",
+  //                 rejectionReason: rejectionReason,
+  //                 rejectedBy: "Admin",
+  //                 rejectedDate: new Date().toISOString(),
+  //               }
+  //             : l
+  //         );
+  //         localStorage.setItem("leaveRequests", JSON.stringify(updated));
+
+  //         // Send notification
+  //         sendNotificationToEmployee(
+  //           targetLeave.name,
+  //           "leave_status",
+  //           "❌ Leave Rejected",
+  //           `Your leave request has been rejected. Reason: ${rejectionReason}`,
+  //           leaveId
+  //         );
+
+  //         // Log admin activity
+  //         const adminActivities = JSON.parse(
+  //           localStorage.getItem("adminActivities") || "[]"
+  //         );
+  //         adminActivities.push({
+  //           id: `admin-reject-${leaveId}-${Date.now()}`,
+  //           employee: targetLeave.name,
+  //           action: `leave rejected by admin: ${rejectionReason}`,
+  //           time: new Date().toISOString(),
+  //           type: "admin",
+  //         });
+  //         localStorage.setItem(
+  //           "adminActivities",
+  //           JSON.stringify(adminActivities)
+  //         );
+
+  //         message.success("Leave rejected successfully!");
+  //         loadData();
+  //       },
+  //     });
+  //   }
+  // };
+  const handleDeleteActivity = async (activityId: string) => {
+    try {
+      if (
+        activityId.startsWith("att-checkin") ||
+        activityId.startsWith("att-checkout")
+      ) {
+        // Extract attendance record ID from activity ID
+        // Format: "att-checkin-{attendanceId}" or "att-checkout-{attendanceId}"
+        const attendanceId = activityId.split("-")[2];
+
+        await dispatch(deleteAttendanceRecord(attendanceId)).unwrap();
+        message.success("Attendance activity deleted successfully!");
+      } else if (activityId.startsWith("leave-")) {
+        // Extract leave ID from activity ID
+        // Format: "leave-{leaveId}"
+        const leaveId = activityId.split("-")[1];
+
+        await dispatch(reduxDeleteLeave(leaveId)).unwrap();
+        message.success("Leave activity deleted successfully!");
+      } else {
+        message.warning("Cannot delete this activity!");
+        return;
+      }
+
+      // Re-fetch activities after deletion
+      await dispatch(fetchRecentActivities());
+    } catch (error: any) {
+      message.error(error || "Failed to delete activity");
+    }
   };
 
   const generateCSV = () => {
     const data =
       selectedEmployee === "all"
         ? attendanceRecords
-        : attendanceRecords.filter((r) => r.name === selectedEmployee);
+        : attendanceRecords.filter(
+            (r) => r.employeeId.name === selectedEmployee
+          );
 
     const headers = [
       "Name",
@@ -1299,7 +1361,7 @@ export default function AttendanceDashboard() {
       "Status",
     ];
     const rows = data.map((r) => [
-      r.name,
+      r.employeeId.name,
       r.date,
       r.checkIn ? new Date(r.checkIn).toLocaleTimeString() : "-",
       r.checkOut ? new Date(r.checkOut).toLocaleTimeString() : "-",
@@ -1328,12 +1390,14 @@ export default function AttendanceDashboard() {
       const data =
         selectedEmployee === "all"
           ? attendanceRecords
-          : attendanceRecords.filter((r) => r.name === selectedEmployee);
+          : attendanceRecords.filter(
+              (r) => r.employeeId.name === selectedEmployee
+            );
 
       let content = `ATTENDANCE REPORT\n===================\n\n`;
       content += `Employee: ${selectedEmployee === "all" ? "All Employees" : selectedEmployee}\n\n`;
       data.forEach((r) => {
-        content += `Name: ${r.name}\nDate: ${r.date}\nCheck In: ${r.checkIn ? new Date(r.checkIn).toLocaleTimeString() : "-"}\nCheck Out: ${r.checkOut || "-"}\nWorking Time: ${r.workingTime}\nStatus: ${r.status}\n\n`;
+        content += `Name: ${r.employeeId.name}\nDate: ${r.date}\nCheck In: ${r.checkIn ? new Date(r.checkIn).toLocaleTimeString() : "-"}\nCheck Out: ${r.checkOut || "-"}\nWorking Time: ${r.workingTime}\nStatus: ${r.status}\n\n`;
       });
       const blob = new Blob([content], { type: "text/plain" });
       const link = document.createElement("a");
@@ -1349,7 +1413,9 @@ export default function AttendanceDashboard() {
     const data =
       selectedEmployee === "all"
         ? attendanceRecords
-        : attendanceRecords.filter((r) => r.name === selectedEmployee);
+        : attendanceRecords.filter(
+            (r) => r.employeeId.name === selectedEmployee
+          );
 
     // Title
     doc.setFontSize(18);
@@ -1390,7 +1456,7 @@ export default function AttendanceDashboard() {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
 
-      doc.text(`Name: ${r.name}`, 20, yPos);
+      doc.text(`Name: ${r.employeeId.name}`, 20, yPos);
       yPos += 5;
       doc.text(`Date: ${r.date}`, 20, yPos);
       yPos += 5;
@@ -1446,11 +1512,19 @@ export default function AttendanceDashboard() {
       title: "Status",
       key: "status",
       render: (_: any, record: Employee) => {
-        const today = new Date().toLocaleDateString("en-US");
-        const todayRecord = attendanceRecords.find(
-          (r) => r.name === record.name && r.date === today
-        );
-        const isPresent = todayRecord?.status === "present";
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const todayRecord = attendanceRecords.find((r) => {
+          const recordDate = new Date(r.date);
+          recordDate.setHours(0, 0, 0, 0);
+          return (
+            r.employeeId.name === record.name &&
+            recordDate.getTime() === today.getTime()
+          );
+        });
+
+        const isPresent = todayRecord?.status === "Present";
 
         return (
           <Tag color={isPresent ? "green" : "red"}>
@@ -1460,11 +1534,10 @@ export default function AttendanceDashboard() {
       },
     },
   ];
-
   const leaveColumns = [
     {
       title: "Employee",
-      dataIndex: "name",
+      dataIndex: "employeeName",
       key: "name",
     },
     {
@@ -1483,20 +1556,16 @@ export default function AttendanceDashboard() {
     },
     {
       title: "Duration",
-      dataIndex: "dates",
-      key: "dates",
-      render: (dates: any) => {
-        if (dates && Array.isArray(dates)) {
-          const start = new Date(dates[0]).toLocaleDateString();
-          const end = new Date(dates[1]).toLocaleDateString();
-          const days =
-            Math.ceil(
-              (new Date(dates[1]).getTime() - new Date(dates[0]).getTime()) /
-                (1000 * 60 * 60 * 24)
-            ) + 1;
-          return `${start} - ${end} (${days} days)`;
-        }
-        return "N/A";
+      key: "duration",
+      render: (_: any, record: LeaveRequest) => {
+        // ✅ Use LeaveRequest type
+        const start = new Date(record.startDate);
+        const end = new Date(record.endDate);
+        const days =
+          Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) +
+          1;
+
+        return `${start.toLocaleDateString()} - ${end.toLocaleDateString()} (${days} days)`;
       },
     },
     {
@@ -1525,41 +1594,148 @@ export default function AttendanceDashboard() {
     {
       title: "Actions",
       key: "actions",
-      render: (_: any, record: LeaveRequest) => (
-        <Space>
-          {record.status === "Pending" && (
-            <>
-              <Button
-                size="small"
-                type="primary"
-                icon={<CheckOutlined />}
-                onClick={() => handleApproveReject(record.id, "Approved")}
-              >
-                Approve
-              </Button>
-              <Button
-                size="small"
-                danger
-                icon={<CloseOutlined />}
-                onClick={() => handleApproveReject(record.id, "Rejected")}
-              >
-                Reject
-              </Button>
-            </>
-          )}
-          <Button
-            size="small"
-            danger
-            icon={<CloseOutlined />}
-            onClick={() => handleDeleteLeaveRequest(record.id)}
-            style={{ marginLeft: record.status === "Pending" ? "8px" : "0" }}
-          >
-            Delete
-          </Button>
-        </Space>
-      ),
+      render: (_: any, record: LeaveRequest) => {
+        // ✅ Use LeaveRequest type
+        console.log("Leave record:", record); // ✅ Debug log
+        console.log("📋 Leave ID:", record._id);
+        return (
+          <Space>
+            {record.status === "Pending" && (
+              <>
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<CheckOutlined />}
+                  onClick={() => {
+                    console.log("Approving leave ID:", record._id); // ✅ Debug
+                    handleApproveReject(record._id, "Approved"); // ✅ Use _id
+                  }}
+                >
+                  Approve
+                </Button>
+                <Button
+                  size="small"
+                  danger
+                  icon={<CloseOutlined />}
+                  onClick={() => {
+                    console.log("Rejecting leave ID:", record._id); // ✅ Debug
+                    handleApproveReject(record._id, "Rejected"); // ✅ Use _id
+                  }}
+                >
+                  Reject
+                </Button>
+              </>
+            )}
+            <Button
+              size="small"
+              danger
+              icon={<CloseOutlined />}
+              onClick={() => handleDeleteLeaveRequest(record._id)} // ✅ Use _id
+              style={{ marginLeft: record.status === "Pending" ? "8px" : "0" }}
+            >
+              Delete
+            </Button>
+          </Space>
+        );
+      },
     },
   ];
+
+  // const leaveColumns = [
+  //   {
+  //     title: "Employee",
+  //     dataIndex: "employeeName",
+  //     key: "name",
+  //   },
+  //   {
+  //     title: "Type",
+  //     dataIndex: "leaveType",
+  //     key: "leaveType",
+  //     render: (type: string) => {
+  //       const typeMap: any = {
+  //         annual: "Annual Leave",
+  //         sick: "Sick Leave",
+  //         casual: "Casual Leave",
+  //         emergency: "Emergency Leave",
+  //       };
+  //       return typeMap[type] || type;
+  //     },
+  //   },
+  //   {
+  //     title: "Duration",
+  //     key: "duration",
+  //     render: (_: any, record: any) => {
+  //       // ✅ Fixed date calculation
+  //       const start = new Date(record.startDate);
+  //       const end = new Date(record.endDate);
+  //       const days =
+  //         Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) +
+  //         1;
+
+  //       return `${start.toLocaleDateString()} - ${end.toLocaleDateString()} (${days} days)`;
+  //     },
+  //   },
+  //   {
+  //     title: "Reason",
+  //     dataIndex: "reason",
+  //     key: "reason",
+  //   },
+  //   {
+  //     title: "Status",
+  //     dataIndex: "status",
+  //     key: "status",
+  //     render: (status: string) => (
+  //       <Tag
+  //         color={
+  //           status === "Approved"
+  //             ? "green"
+  //             : status === "Pending"
+  //               ? "orange"
+  //               : "red"
+  //         }
+  //       >
+  //         {status}
+  //       </Tag>
+  //     ),
+  //   },
+  //   {
+  //     title: "Actions",
+  //     key: "actions",
+  //     render: (_: any, record: LeaveRequest) => (
+  //       <Space>
+  //         {record.status === "Pending" && (
+  //           <>
+  //             <Button
+  //               size="small"
+  //               type="primary"
+  //               icon={<CheckOutlined />}
+  //               onClick={() => handleApproveReject(record.id, "Approved")}
+  //             >
+  //               Approve
+  //             </Button>
+  //             <Button
+  //               size="small"
+  //               danger
+  //               icon={<CloseOutlined />}
+  //               onClick={() => handleApproveReject(record.id, "Rejected")}
+  //             >
+  //               Reject
+  //             </Button>
+  //           </>
+  //         )}
+  //         <Button
+  //           size="small"
+  //           danger
+  //           icon={<CloseOutlined />}
+  //           onClick={() => handleDeleteLeaveRequest(record.id)}
+  //           style={{ marginLeft: record.status === "Pending" ? "8px" : "0" }}
+  //         >
+  //           Delete
+  //         </Button>
+  //       </Space>
+  //     ),
+  //   },
+  // ];
   return (
     <div style={{ padding: "20px", background: "#f0f2f5", minHeight: "100vh" }}>
       <Row gutter={[16, 16]} style={{ marginBottom: "24px" }}>
@@ -2048,7 +2224,6 @@ export default function AttendanceDashboard() {
                         marginLeft: 8,
                       }}
                       onClick={() => {
-                        // ✅ Same approach as Export card - direct window.jspdf access
                         if (typeof window.jspdf === "undefined") {
                           message.error(
                             "PDF library not loaded yet. Please wait a moment."
@@ -2057,10 +2232,17 @@ export default function AttendanceDashboard() {
                         }
 
                         try {
-                          const today = new Date().toLocaleDateString("en-US");
-                          const presentToday = attendanceRecords.filter(
-                            (r) => r.date === today && r.status === "present"
-                          );
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+
+                          const presentToday = attendanceRecords.filter((r) => {
+                            const recordDate = new Date(r.date);
+                            recordDate.setHours(0, 0, 0, 0);
+                            return (
+                              recordDate.getTime() === today.getTime() &&
+                              r.status === "Present"
+                            );
+                          });
 
                           if (presentToday.length === 0) {
                             message.warning("No employees present today!");
@@ -2102,7 +2284,7 @@ export default function AttendanceDashboard() {
                           let yPos = 45;
                           presentToday.forEach((record, index) => {
                             const emp = employees.find(
-                              (e) => e.name === record.name
+                              (e) => e.name === record.employeeId.name
                             );
                             if (yPos > 270) {
                               doc.addPage();
@@ -2127,7 +2309,11 @@ export default function AttendanceDashboard() {
 
                             doc.setFont("helvetica", "normal");
                             doc.setFontSize(9);
-                            doc.text(`Name: ${record.name}`, 20, yPos);
+                            doc.text(
+                              `Name: ${record.employeeId.name}`,
+                              20,
+                              yPos
+                            );
                             yPos += 5;
                             doc.text(
                               `Role: ${emp?.specificRole || "N/A"}`,
@@ -2282,7 +2468,7 @@ export default function AttendanceDashboard() {
                           setCurrentAction("approve");
                           setApproveModal(true);
                           if (loggedInUser.userRole === "admin") {
-                            setPendingLeaveCount(0);
+                            // setPendingLeaveCount(0);
                           }
                         }}
                         style={{
@@ -2592,10 +2778,15 @@ export default function AttendanceDashboard() {
             rules={[
               { required: true, message: "Please enter total leave days!" },
               {
-                type: "number",
-                min: 0,
-                max: 365,
-                message: "Please enter a valid number (0-365)!",
+                validator: (_, value) => {
+                  const num = Number(value);
+                  if (isNaN(num) || num < 0 || num > 365) {
+                    return Promise.reject(
+                      new Error("Please enter a valid number (0-365)!")
+                    );
+                  }
+                  return Promise.resolve();
+                },
               },
             ]}
             extra="Standard: 12-20 days per year"
@@ -2649,8 +2840,10 @@ export default function AttendanceDashboard() {
       >
         <Table
           columns={leaveColumns}
-          dataSource={leaveRequests.filter((leave) => !leave.isCompanyWide)}
-          rowKey="id"
+          dataSource={
+            leaveRequests.filter((leave) => !leave.isCompanyWide) as any[]
+          }
+          rowKey="_id"
           pagination={false}
           scroll={{ x: 900 }}
         />
