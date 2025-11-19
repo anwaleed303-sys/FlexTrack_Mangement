@@ -14,6 +14,7 @@ import {
   Tag,
   Table,
   Popconfirm,
+  App,
 } from "antd";
 import {
   LineChart,
@@ -74,6 +75,7 @@ const COLORS = {
 };
 
 export default function Dashboard() {
+  const { message } = App.useApp();
   const [mounted, setMounted] = useState(false);
   const [userData, setUserData] = useState<UserData>({
     name: "User",
@@ -105,6 +107,10 @@ export default function Dashboard() {
   const [upcomingShifts, setUpcomingShifts] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(false);
+  const [deletingLeaveId, setDeletingLeaveId] = useState<string | null>(null);
+  const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<
+    string | null
+  >(null);
 
   // Axios instance
   const axiosInstance = axios.create({
@@ -133,7 +139,6 @@ export default function Dashboard() {
 
   const loadData = async () => {
     try {
-      // Load user from localStorage
       const loggedInUserStr = localStorage.getItem("loggedInUser");
       if (loggedInUserStr) {
         const currentUser = JSON.parse(loggedInUserStr);
@@ -145,15 +150,13 @@ export default function Dashboard() {
           customShift: currentUser.customShift,
         });
 
-        // Load backend data
         await loadWeeklyAttendance();
         await loadAnnouncements();
 
         if (currentUser.userRole === "employee") {
           await loadCheckInStatus();
           await loadMyLeaveRequests();
-        } else if (currentUser.userRole === "admin") {
-          await loadUpcomingLeaves();
+          await loadUpcomingLeaves(); // ✅ ADD THIS LINE
         }
       }
     } catch (error) {
@@ -246,35 +249,76 @@ export default function Dashboard() {
       setLeaveChartData([]);
     }
   };
-
   const loadUpcomingLeaves = async () => {
     try {
-      const response = await axiosInstance.get("/leaves/upcoming");
+      // Fetch approved leaves for current employee
+      const response = await axiosInstance.get("/leaves/list");
       if (response.data.success) {
-        // ✅ SAFE: Use optional chaining and default empty array
         const leaves = response.data.data?.leaves || [];
-        const shifts = leaves.map((leave: any) => ({
-          id: leave._id,
-          type: leave.leaveType,
-          time: `${new Date(leave.startDate).toLocaleDateString()} - ${new Date(leave.endDate).toLocaleDateString()}`,
-          approved: true,
-          employeeName: leave.employeeName,
-        }));
-        setUpcomingShifts(shifts);
+
+        // Filter only approved leaves and map to shifts format
+        const approvedLeaves = leaves
+          .filter((leave: LeaveRequest) => leave.status === "Approved")
+          .map((leave: LeaveRequest) => ({
+            id: leave._id,
+            type: leave.leaveType,
+            time: `${new Date(leave.startDate).toLocaleDateString()} - ${new Date(leave.endDate).toLocaleDateString()}`,
+            approved: true,
+            employeeName: leave.employeeName,
+            totalDays: leave.totalDays,
+          }));
+
+        setUpcomingShifts(approvedLeaves);
       }
     } catch (error: any) {
       console.error("Load upcoming leaves error:", error);
       setUpcomingShifts([]);
     }
   };
+  // const loadUpcomingLeaves = async () => {
+  //   try {
+  //     const response = await axiosInstance.get("/leaves/upcoming");
+  //     if (response.data.success) {
+  //       // ✅ SAFE: Use optional chaining and default empty array
+  //       const leaves = response.data.data?.leaves || [];
+  //       const shifts = leaves.map((leave: any) => ({
+  //         id: leave._id,
+  //         type: leave.leaveType,
+  //         time: `${new Date(leave.startDate).toLocaleDateString()} - ${new Date(leave.endDate).toLocaleDateString()}`,
+  //         approved: true,
+  //         employeeName: leave.employeeName,
+  //       }));
+  //       setUpcomingShifts(shifts);
+  //     }
+  //   } catch (error: any) {
+  //     console.error("Load upcoming leaves error:", error);
+  //     setUpcomingShifts([]);
+  //   }
+  // };
 
   const loadAnnouncements = async () => {
     try {
       const response = await axiosInstance.get("/announcements/list");
       if (response.data.success) {
-        // ✅ SAFE: Use optional chaining and default empty array
         const announcements = response.data.data?.announcements || [];
-        setAnnouncements(announcements);
+
+        // Sort by priority: high > medium > low, then by date (newest first)
+        const sortedAnnouncements = announcements.sort(
+          (a: Announcement, b: Announcement) => {
+            const priorityOrder: any = { high: 3, medium: 2, low: 1 };
+            const priorityDiff =
+              (priorityOrder[b.priority] || 0) -
+              (priorityOrder[a.priority] || 0);
+
+            if (priorityDiff !== 0) return priorityDiff;
+
+            return (
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+          }
+        );
+
+        setAnnouncements(sortedAnnouncements);
       }
     } catch (error: any) {
       console.error("Load announcements error:", error);
@@ -324,7 +368,7 @@ export default function Dashboard() {
 
   const handleDeleteLeave = async (leaveId: string) => {
     try {
-      setLoading(true);
+      setDeletingLeaveId(leaveId);
       const response = await axiosInstance.delete(`/leaves/${leaveId}`);
 
       if (response.data.success) {
@@ -340,13 +384,13 @@ export default function Dashboard() {
       console.error("Delete leave error:", error);
       message.error(error.response?.data?.message || "Failed to delete leave");
     } finally {
-      setLoading(false);
+      setDeletingLeaveId(null);
     }
   };
 
   const handleDeleteAnnouncement = async (announcementId: string) => {
     try {
-      setLoading(true);
+      setDeletingAnnouncementId(announcementId);
       const response = await axiosInstance.delete(
         `/announcements/${announcementId}`
       );
@@ -361,7 +405,7 @@ export default function Dashboard() {
         error.response?.data?.message || "Failed to delete announcement"
       );
     } finally {
-      setLoading(false);
+      setDeletingAnnouncementId(null);
     }
   };
 
@@ -446,7 +490,7 @@ export default function Dashboard() {
             danger
             icon={<DeleteOutlined />}
             size="small"
-            loading={loading}
+            loading={deletingLeaveId === record._id}
           >
             Delete
           </Button>
@@ -664,6 +708,70 @@ export default function Dashboard() {
                         }}
                       >
                         <div style={{ flex: 1 }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              marginBottom: "4px",
+                            }}
+                          >
+                            <Text strong>{shift.type}</Text>
+                            <Tag color="green">Approved</Tag>
+                          </div>
+                          <Text
+                            type="secondary"
+                            style={{ display: "block", fontSize: "12px" }}
+                          >
+                            {shift.time}
+                          </Text>
+                          <Text
+                            type="secondary"
+                            style={{
+                              display: "block",
+                              fontSize: "11px",
+                              marginTop: "2px",
+                            }}
+                          >
+                            Duration: {shift.totalDays}{" "}
+                            {shift.totalDays === 1 ? "day" : "days"}
+                          </Text>
+                        </div>
+                      </div>
+                    ))}
+                  </Space>
+                </div>
+              ) : (
+                <Text type="secondary">
+                  No approved leave requests at this time
+                </Text>
+              )}
+            </Card>
+          </Col>
+        )}
+        {/* {userData.userRole === "employee" && (
+          <Col xs={24} lg={12}>
+            <Card title="Upcoming Shifts" style={{ borderRadius: "12px" }}>
+              {upcomingShifts.length > 0 ? (
+                <div style={{ maxHeight: "240px", overflowY: "auto" }}>
+                  <Space
+                    direction="vertical"
+                    size="middle"
+                    style={{ width: "100%" }}
+                  >
+                    {upcomingShifts.map((shift) => (
+                      <div
+                        key={shift.id}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "12px",
+                          background: "#fafafa",
+                          borderRadius: "8px",
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
                           <Text strong>
                             {shift.employeeName} - {shift.type}
                           </Text>
@@ -684,7 +792,7 @@ export default function Dashboard() {
               )}
             </Card>
           </Col>
-        )}
+        )} */}
 
         {userData.userRole === "employee" && (
           <>
@@ -959,7 +1067,7 @@ export default function Dashboard() {
           </Col>
         )} */}
 
-        {userData.userRole === "employee" && (
+        {/* {userData.userRole === "employee" && (
           <Col xs={24}>
             <Card
               title="Important Announcements"
@@ -980,45 +1088,74 @@ export default function Dashboard() {
                   </Text>
                 </>
               ) : (
-                announcements.slice(0, 3).map((announcement) => (
-                  <div
-                    key={announcement._id}
-                    style={{
-                      marginBottom: "12px",
-                      paddingBottom: "12px",
-                      borderBottom: "1px solid #f0f0f0",
-                    }}
-                  >
-                    <Text strong style={{ color: "#0066FF", display: "block" }}>
-                      {announcement.title}
-                    </Text>
-                    <Text
-                      type="secondary"
+                announcements.slice(0, 5).map((announcement) => {
+                  const priorityColors: any = {
+                    high: "#ff4d4f",
+                    medium: "#faad14",
+                    low: "#52c41a",
+                  };
+
+                  return (
+                    <div
+                      key={announcement._id}
                       style={{
-                        display: "block",
-                        fontSize: "12px",
-                        marginTop: "4px",
+                        marginBottom: "12px",
+                        paddingBottom: "12px",
+                        borderBottom: "1px solid #f0f0f0",
                       }}
                     >
-                      {announcement.message}
-                    </Text>
-                    <Text
-                      type="secondary"
-                      style={{
-                        display: "block",
-                        fontSize: "11px",
-                        marginTop: "4px",
-                        color: "#8c8c8c",
-                      }}
-                    >
-                      {new Date(announcement.createdAt).toLocaleDateString()}
-                    </Text>
-                  </div>
-                ))
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        <Text strong style={{ color: "#0066FF" }}>
+                          {announcement.title}
+                        </Text>
+                        <Tag color={priorityColors[announcement.priority]}>
+                          {announcement.priority.toUpperCase()}
+                        </Tag>
+                      </div>
+                      <Text
+                        type="secondary"
+                        style={{
+                          display: "block",
+                          fontSize: "12px",
+                          marginTop: "4px",
+                        }}
+                      >
+                        {announcement.message}
+                      </Text>
+                      <Text
+                        type="secondary"
+                        style={{
+                          display: "block",
+                          fontSize: "11px",
+                          marginTop: "4px",
+                          color: "#8c8c8c",
+                        }}
+                      >
+                        {new Date(announcement.createdAt).toLocaleDateString(
+                          "en-US",
+                          {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )}
+                      </Text>
+                    </div>
+                  );
+                })
               )}
             </Card>
           </Col>
-        )}
+        )} */}
       </Row>
 
       <Modal

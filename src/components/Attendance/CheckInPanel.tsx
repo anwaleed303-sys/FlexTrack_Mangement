@@ -90,7 +90,9 @@ const QuickStatsCards: React.FC = () => {
   >(null);
   const [leaveType, setLeaveType] = useState("");
   const [leaveReason, setLeaveReason] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [checkInLoading, setCheckInLoading] = useState(false);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [leaveLoading, setLeaveLoading] = useState(false);
 
   // Get token from localStorage
   const getToken = () => {
@@ -279,7 +281,7 @@ const QuickStatsCards: React.FC = () => {
     }
 
     try {
-      setLoading(true);
+      setCheckInLoading(true);
       const response = await axiosInstance.post("/attendance/check-in");
 
       if (response.data.success) {
@@ -299,13 +301,13 @@ const QuickStatsCards: React.FC = () => {
       console.error("Check-in error:", error);
       message.error(error.response?.data?.message || "Failed to check in");
     } finally {
-      setLoading(false);
+      setCheckInLoading(false);
     }
   };
 
   const handleCheckOut = async () => {
     try {
-      setLoading(true);
+      setCheckInLoading(true);
       const response = await axiosInstance.put("/attendance/check-out");
 
       if (response.data.success) {
@@ -324,13 +326,13 @@ const QuickStatsCards: React.FC = () => {
       console.error("Check-out error:", error);
       message.error(error.response?.data?.message || "Failed to check out");
     } finally {
-      setLoading(false);
+      setCheckInLoading(false);
     }
   };
 
   const handleViewAttendance = async () => {
     try {
-      setLoading(true);
+      setAttendanceLoading(true);
       const response = await axiosInstance.get("/attendance/list");
 
       if (response.data.success) {
@@ -343,7 +345,7 @@ const QuickStatsCards: React.FC = () => {
         error.response?.data?.message || "Failed to load attendance"
       );
     } finally {
-      setLoading(false);
+      setAttendanceLoading(false);
     }
   };
 
@@ -358,7 +360,7 @@ const QuickStatsCards: React.FC = () => {
     }
 
     try {
-      setLoading(true);
+      setLeaveLoading(true);
       const response = await axiosInstance.post("/leaves/submit", {
         startDate: leaveDates[0]?.toISOString(),
         endDate: leaveDates[1]?.toISOString(),
@@ -379,7 +381,7 @@ const QuickStatsCards: React.FC = () => {
         error.response?.data?.message || "Failed to submit leave request"
       );
     } finally {
-      setLoading(false);
+      setLeaveLoading(false);
     }
   };
 
@@ -637,7 +639,7 @@ const QuickStatsCards: React.FC = () => {
                       }
                       onClick={isCheckedIn ? handleCheckOut : handleCheckIn}
                       disabled={!isCheckedIn && hasMarkedToday}
-                      loading={loading}
+                      loading={checkInLoading}
                       style={{
                         flex: 1,
                         border: "none",
@@ -674,7 +676,7 @@ const QuickStatsCards: React.FC = () => {
               <Button
                 block
                 onClick={handleViewAttendance}
-                loading={loading}
+                loading={attendanceLoading}
                 style={{
                   width: "100%",
                   background: "transparent",
@@ -703,7 +705,7 @@ const QuickStatsCards: React.FC = () => {
           setLeaveReason("");
         }}
         onOk={handleLeaveSubmit}
-        confirmLoading={loading}
+        confirmLoading={leaveLoading}
         okText="Submit Request"
         okButtonProps={{
           style: {

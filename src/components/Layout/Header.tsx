@@ -427,6 +427,7 @@
 // };
 
 // export default Header;
+
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../redux/store";
@@ -463,7 +464,23 @@ interface UserData {
   role?: string;
   specificRole?: string;
 }
-
+interface Notification {
+  id: string;
+  type:
+    | "leave_status"
+    | "company_announcement"
+    | "company_leave"
+    | "shift_assignment"
+    | "shift_approval"
+    | "shift_rejection";
+  title: string;
+  message: string;
+  date: string;
+  read: boolean;
+  leaveId?: number;
+  shiftRequestId?: string;
+  assignmentId?: string;
+}
 interface HeaderProps {
   onMenuClick?: () => void;
   isMobile?: boolean;
@@ -485,7 +502,6 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobile = false }) => {
     specificRole: "HR Manager",
   });
   const [showNotifications, setShowNotifications] = useState(false);
-
   useEffect(() => {
     // Get user data from localStorage
     const loggedInUser = localStorage.getItem("loggedInUser");
@@ -512,8 +528,54 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobile = false }) => {
       dispatch(fetchRecentNotifications());
     }, 10000);
 
-    return () => clearInterval(interval);
+    // ADD THIS: Listen for profile updates
+    const handleProfileUpdate = (event: CustomEvent) => {
+      if (event.detail?.profileImage) {
+        setProfileImage(event.detail.profileImage);
+      }
+    };
+
+    window.addEventListener(
+      "profileUpdated",
+      handleProfileUpdate as EventListener
+    );
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener(
+        "profileUpdated",
+        handleProfileUpdate as EventListener
+      );
+    };
   }, [dispatch]);
+  // useEffect(() => {
+  //   // Get user data from localStorage
+  //   const loggedInUser = localStorage.getItem("loggedInUser");
+  //   if (loggedInUser) {
+  //     try {
+  //       const user = JSON.parse(loggedInUser);
+  //       setUserData({
+  //         name: user.name || user.fullName || "User",
+  //         email: user.email || "",
+  //         role: user.userRole === "admin" ? "Admin" : "Employee",
+  //         specificRole: user.specificRole || "",
+  //       });
+  //       setProfileImage(user.profileImage || "");
+
+  //       // Load notifications
+  //       dispatch(fetchRecentNotifications());
+  //     } catch (error) {
+  //       console.error("Error parsing user data:", error);
+  //     }
+  //   }
+
+  //   // Refresh notifications every 10 seconds
+  //   const interval = setInterval(() => {
+  //     dispatch(fetchRecentNotifications());
+  //   }, 10000);
+
+  //   return () => clearInterval(interval);
+  // }, [dispatch]);
 
   const handleLogout = () => {
     localStorage.removeItem("loggedInUser");

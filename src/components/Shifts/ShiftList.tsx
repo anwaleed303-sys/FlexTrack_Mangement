@@ -3168,7 +3168,35 @@ interface ShiftRequest {
   adminComments?: string;
   adminNotes?: string;
 }
+const sendNotificationToEmployee = (
+  employeeName: string,
+  type: "shift_assignment" | "shift_approval" | "shift_rejection",
+  title: string,
+  message: string,
+  shiftRequestId?: string,
+  assignmentId?: string
+) => {
+  const employeeNotifications: any[] = JSON.parse(
+    localStorage.getItem(`notifications_${employeeName}`) || "[]"
+  );
 
+  const newNotification = {
+    id: `notif_${Date.now()}_${Math.random()}`,
+    type,
+    title,
+    message,
+    date: new Date().toISOString(),
+    read: false,
+    shiftRequestId,
+    assignmentId,
+  };
+
+  employeeNotifications.unshift(newNotification);
+  localStorage.setItem(
+    `notifications_${employeeName}`,
+    JSON.stringify(employeeNotifications)
+  );
+};
 const ShiftManagement: React.FC = () => {
   const { message } = App.useApp();
 
@@ -3513,8 +3541,32 @@ const ShiftManagement: React.FC = () => {
         ],
         closedDays: closedDays,
       };
-
       await dispatch(assignShiftAsync(data)).unwrap();
+
+      // ✅ ADD NOTIFICATION CREATION HERE
+      const adminName =
+        JSON.parse(localStorage.getItem("loggedInUser") || "{}").name ||
+        "Admin";
+      const shiftLabel = getShiftLabel(values.shift, values.customShift);
+      const startDate = values.dateRange[0].format("MMM D, YYYY");
+      const endDate = values.dateRange[1].format("MMM D, YYYY");
+
+      // Send notification to each selected employee
+      selectedEmployees.forEach((email) => {
+        const emp = employees.find((e) => e.email === email);
+        if (emp) {
+          // Create notification using your notification system
+          sendNotificationToEmployee(
+            emp.name,
+            "shift_assignment",
+            "🔔 New Shift Assignment",
+            `Admin has assigned you ${shiftLabel} from ${startDate} to ${endDate}. Assigned by: ${adminName}`,
+            undefined,
+            undefined
+          );
+        }
+      });
+
       message.success(
         `Shift assigned to ${selectedEmployees.length} employee(s) successfully!`
       );
@@ -3522,6 +3574,14 @@ const ShiftManagement: React.FC = () => {
       // Refresh assignments
       dispatch(fetchShiftAssignments({}));
       dispatch(fetchEmployeesAsync());
+      // await dispatch(assignShiftAsync(data)).unwrap();
+      // message.success(
+      //   `Shift assigned to ${selectedEmployees.length} employee(s) successfully!`
+      // );
+
+      // // Refresh assignments
+      // dispatch(fetchShiftAssignments({}));
+      // dispatch(fetchEmployeesAsync());
 
       setIsModalVisible(false);
       form.resetFields();
@@ -3584,7 +3644,31 @@ const ShiftManagement: React.FC = () => {
           },
         })
       ).unwrap();
+      // ✅ ADD NOTIFICATION FOR APPROVAL/REJECTION
+      const adminName =
+        JSON.parse(localStorage.getItem("loggedInUser") || "{}").name ||
+        "Admin";
+      const notificationType =
+        values.status === "approved" ? "shift_approval" : "shift_rejection";
+      const notificationIcon = values.status === "approved" ? "✅" : "❌";
+      const notificationTitle =
+        values.status === "approved"
+          ? `${notificationIcon} Shift Change Approved`
+          : `${notificationIcon} Shift Change Rejected`;
 
+      const notificationMessage =
+        values.status === "approved"
+          ? `Your shift change request to ${selectedRequest.requestedShift} has been approved by ${adminName}. ${values.adminComments || ""}`
+          : `Your shift change request to ${selectedRequest.requestedShift} has been rejected by ${adminName}. ${values.adminComments || ""}`;
+
+      sendNotificationToEmployee(
+        selectedRequest.employeeName,
+        notificationType,
+        notificationTitle,
+        notificationMessage,
+        selectedRequest._id,
+        undefined
+      );
       message.success(`Request ${values.status} successfully!`);
 
       // Refresh requests

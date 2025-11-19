@@ -98,7 +98,8 @@ interface AttendanceRecord {
   date: string;
   checkIn: string;
   checkOut: string;
-  workingTime: string;
+  workDuration?: string;
+  // workingTime: string;
   status: "present" | "absent";
   workingHours?: number;
 }
@@ -223,7 +224,8 @@ export default function AttendanceDashboard() {
   // Remove these lines - use Redux state instead
   const isUserCheckedIn = checkInStatus.isCheckedIn;
   const userCheckInTime = checkInStatus.checkInTime;
-
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [leaveMode, setLeaveMode] = useState<"individual" | "company">(
     "individual"
   );
@@ -299,7 +301,65 @@ export default function AttendanceDashboard() {
 
   // ✅ CSV Download
   // ✅ CSV Download - Update handleDownloadCSV function
+  // const handleDownloadCSV = () => {
+  //   try {
+  //     const today = new Date();
+  //     today.setHours(0, 0, 0, 0);
+
+  //     const presentToday = attendanceRecords.filter((r) => {
+  //       const recordDate = new Date(r.date);
+  //       recordDate.setHours(0, 0, 0, 0);
+  //       return (
+  //         recordDate.getTime() === today.getTime() && r.status === "Present"
+  //       );
+  //     });
+
+  //     if (presentToday.length === 0) {
+  //       message.warning("No employees present today!");
+  //       return;
+  //     }
+
+  //     const headers = [
+  //       "Name",
+  //       "Role",
+  //       "Shift",
+  //       "Check-In",
+  //       "Check-Out",
+  //       "Working Hours",
+  //     ];
+
+  //     const rows = presentToday.map((record) => {
+  //       const emp = employees.find((e) => e.name === record.employeeId.name);
+  //       return [
+  //         record.employeeId.name,
+  //         emp?.specificRole || "N/A",
+  //         emp?.shift || "N/A",
+  //         record.checkIn || "N/A",
+  //         record.checkOut || "N/A",
+  //         `${record.workingHours || 0} hrs`,
+  //       ];
+  //     });
+
+  //     let csvContent = headers.join(",") + "\n";
+  //     rows.forEach((row) => {
+  //       csvContent += row.join(",") + "\n";
+  //     });
+
+  //     const blob = new Blob([csvContent], { type: "text/csv" });
+  //     const link = document.createElement("a");
+  //     link.href = URL.createObjectURL(blob);
+  //     link.download = "present_employees.csv";
+  //     document.body.appendChild(link);
+  //     link.click();
+  //     document.body.removeChild(link);
+
+  //     message.success("CSV downloaded successfully!");
+  //   } catch (error) {
+  //     message.error("Failed to download CSV!");
+  //   }
+  // };
   const handleDownloadCSV = () => {
+    setCsvLoading(true);
     try {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -314,6 +374,7 @@ export default function AttendanceDashboard() {
 
       if (presentToday.length === 0) {
         message.warning("No employees present today!");
+        setCsvLoading(false);
         return;
       }
 
@@ -328,13 +389,41 @@ export default function AttendanceDashboard() {
 
       const rows = presentToday.map((record) => {
         const emp = employees.find((e) => e.name === record.employeeId.name);
+
+        // ✅ Format check-in time
+        const checkInTime = record.checkIn
+          ? new Date(record.checkIn).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            })
+          : "N/A";
+
+        // ✅ Format check-out time
+        const checkOutTime = record.checkOut
+          ? new Date(record.checkOut).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            })
+          : "In Progress";
+
+        // ✅ Get working duration - check multiple possible field names
+        const workingDuration =
+          (record as any).workDuration ||
+          record.workingTime ||
+          (record.workingHours
+            ? `${record.workingHours.toFixed(2)} hrs`
+            : null) ||
+          (record.checkOut ? "Completed" : "In Progress");
+
         return [
           record.employeeId.name,
           emp?.specificRole || "N/A",
           emp?.shift || "N/A",
-          record.checkIn || "N/A",
-          record.checkOut || "N/A",
-          `${record.workingHours || 0} hrs`,
+          checkInTime,
+          checkOutTime,
+          workingDuration,
         ];
       });
 
@@ -353,7 +442,10 @@ export default function AttendanceDashboard() {
 
       message.success("CSV downloaded successfully!");
     } catch (error) {
+      console.error("CSV Download Error:", error);
       message.error("Failed to download CSV!");
+    } finally {
+      setCsvLoading(false); // ✅ Stop loading
     }
   };
 
@@ -367,17 +459,22 @@ export default function AttendanceDashboard() {
     }
 
     try {
-      const today = new Date().toLocaleDateString("en-US");
-      const presentToday = attendanceRecords.filter(
-        (r) => r.date === today && r.status === "Present"
-      );
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const presentToday = attendanceRecords.filter((r) => {
+        const recordDate = new Date(r.date);
+        recordDate.setHours(0, 0, 0, 0);
+        return (
+          recordDate.getTime() === today.getTime() && r.status === "Present"
+        );
+      });
 
       if (presentToday.length === 0) {
         message.warning("No employees present today!");
         return;
       }
 
-      // ✅ FIX: jsPDFLib is already the constructor, just use 'new' with it
       const doc = new jsPDFLib();
 
       // Title Section
@@ -405,6 +502,7 @@ export default function AttendanceDashboard() {
           yPos = 20;
         }
 
+        // ✅ Format check-in time
         const checkInTime = record.checkIn
           ? new Date(record.checkIn).toLocaleTimeString("en-US", {
               hour: "2-digit",
@@ -412,6 +510,24 @@ export default function AttendanceDashboard() {
               hour12: true,
             })
           : "N/A";
+
+        // ✅ Format check-out time
+        const checkOutTime = record.checkOut
+          ? new Date(record.checkOut).toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            })
+          : "In Progress";
+
+        // ✅ Get working duration - check multiple possible field names
+        const workingDuration =
+          (record as any).workDuration ||
+          record.workingTime ||
+          (record.workingHours
+            ? `${record.workingHours.toFixed(2)} hrs`
+            : null) ||
+          (record.checkOut ? "Completed" : "In Progress");
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
@@ -428,9 +544,9 @@ export default function AttendanceDashboard() {
         yPos += 5;
         doc.text(`Check-In: ${checkInTime}`, 20, yPos);
         yPos += 5;
-        doc.text(`Check-Out: ${record.checkOut || "In Progress"}`, 20, yPos);
+        doc.text(`Check-Out: ${checkOutTime}`, 20, yPos);
         yPos += 5;
-        doc.text(`Working Time: ${record.workingTime || "0h 0m"}`, 20, yPos);
+        doc.text(`Working Time: ${workingDuration}`, 20, yPos); // ✅ Use workingDuration
         yPos += 8;
 
         doc.setDrawColor(200, 200, 200);
@@ -1840,7 +1956,11 @@ export default function AttendanceDashboard() {
               <Text
                 style={{ color: "#6b7280", fontSize: "14px", fontWeight: 500 }}
               >
-                {isUserCheckedIn ? "Quick Check-out" : "Quick Check-in"}
+                {checkInStatus.isCheckedIn
+                  ? "Quick Check-out"
+                  : checkInStatus.hasMarkedToday
+                    ? "Attendance Marked"
+                    : "Quick Check-in"}
               </Text>
               <Text
                 style={{
@@ -1850,22 +1970,63 @@ export default function AttendanceDashboard() {
                   margin: "8px 0 12px 0",
                 }}
               >
-                {isUserCheckedIn ? "End your session" : "Start your session"}
+                {checkInStatus.isCheckedIn
+                  ? "End your session"
+                  : checkInStatus.hasMarkedToday
+                    ? "You've marked attendance  today"
+                    : "Start your session"}
               </Text>
               <Button
                 type="primary"
                 size="large"
-                onClick={isUserCheckedIn ? handleCheckOut : handleCheckIn}
+                onClick={
+                  checkInStatus.isCheckedIn ? handleCheckOut : handleCheckIn
+                }
+                disabled={
+                  !checkInStatus.isCheckedIn && checkInStatus.hasMarkedToday
+                }
+                loading={attendanceLoading}
                 style={{
                   width: "100%",
-                  backgroundColor: isUserCheckedIn ? "#ef4444" : "#10b981",
-                  borderColor: isUserCheckedIn ? "#ef4444" : "#10b981",
+                  backgroundColor: checkInStatus.isCheckedIn
+                    ? "#ef4444"
+                    : checkInStatus.hasMarkedToday
+                      ? "#9ca3af"
+                      : "#10b981",
+                  borderColor: checkInStatus.isCheckedIn
+                    ? "#ef4444"
+                    : checkInStatus.hasMarkedToday
+                      ? "#9ca3af"
+                      : "#10b981",
                   borderRadius: "8px",
                   fontWeight: 600,
+                  cursor:
+                    !checkInStatus.isCheckedIn && checkInStatus.hasMarkedToday
+                      ? "not-allowed"
+                      : "pointer",
                 }}
               >
-                {isUserCheckedIn ? "Check out" : "Checked in"}
+                {checkInStatus.isCheckedIn
+                  ? "Check Out"
+                  : checkInStatus.hasMarkedToday
+                    ? "Already Checked Out"
+                    : "Check In"}
               </Button>
+
+              {/* Show work duration if available */}
+              {/* {checkInStatus.hasMarkedToday && checkInStatus.workDuration && (
+                <Text
+                  style={{
+                    display: "block",
+                    marginTop: "8px",
+                    fontSize: "12px",
+                    color: "#10b981",
+                    textAlign: "center",
+                  }}
+                >
+                  Today's work: {checkInStatus.workDuration}
+                </Text>
+              )} */}
             </Card>
           </Col>
         )}
@@ -1888,7 +2049,10 @@ export default function AttendanceDashboard() {
               marginBottom: "16px",
             }}
           >
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer
+              width="100%"
+              height={loggedInUser.userRole === "employee" ? 300 : 250}
+            >
               <LineChart data={weeklyAttendance}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis
@@ -1918,160 +2082,179 @@ export default function AttendanceDashboard() {
 
           {/* Productivity Breakdown and Work Hours Summary Row */}
           <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
-            <Col xs={24} md={loggedInUser.userRole === "admin" ? 12 : 24}>
-              <Card
-                title={
-                  <Text
-                    style={{
-                      fontSize: "18px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Productivity Breakdown
-                  </Text>
-                }
-                bordered={false}
-                style={{
-                  borderRadius: "16px",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                  backgroundColor: "#ffffff",
-                }}
-              >
-                <div
+            {loggedInUser.userRole === "admin" && (
+              <Col xs={24} md={12}>
+                <Card
+                  title={
+                    <Text
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Productivity Breakdown
+                    </Text>
+                  }
+                  bordered={false}
                   style={{
-                    position: "relative",
-                    paddingTop: "20px",
-                    paddingBottom: "20px",
+                    borderRadius: "16px",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                    backgroundColor: "#ffffff",
                   }}
                 >
-                  {/* Labels positioned around the pie chart - Top Labels */}
-                  {productivityData.slice(0, 2).map((item, index) => {
-                    const totalValue = productivityData.reduce(
-                      (sum, d) => sum + d.value,
-                      0
-                    );
-                    const percentage = Math.round(
-                      (item.value / totalValue) * 100
-                    );
+                  <div
+                    style={{
+                      position: "relative",
+                      paddingTop: "20px",
+                      paddingBottom: "20px",
+                      minHeight: "200px",
+                    }}
+                  >
+                    {/* Labels positioned around the pie chart - Top Labels */}
+                    {productivityData.slice(0, 2).map((item, index) => {
+                      const totalValue = productivityData.reduce(
+                        (sum, d) => sum + d.value,
+                        0
+                      );
+                      const percentage = Math.round(
+                        (item.value / totalValue) * 100
+                      );
 
-                    return (
-                      <div
-                        key={index}
-                        style={{
-                          position: "absolute",
-                          left: index === 0 ? "5%" : "auto",
-                          right: index === 1 ? "5%" : "auto",
-                          top: index === 0 ? "10px" : "10px",
-                          fontSize: "12px",
-                          color: "#64748b",
-                          fontWeight: 500,
-                          lineHeight: "1.5",
-                          zIndex: 10,
-                        }}
-                      >
-                        <div style={{ whiteSpace: "nowrap" }}>
-                          {item.name} ({item.value})
+                      return (
+                        <div
+                          key={index}
+                          style={{
+                            position: "absolute",
+                            left: index === 0 ? "5%" : "auto",
+                            right: index === 1 ? "5%" : "auto",
+                            top: index === 0 ? "10px" : "10px",
+                            fontSize: "12px",
+                            color: "#64748b",
+                            fontWeight: 500,
+                            lineHeight: "1.5",
+                            zIndex: 10,
+                          }}
+                        >
+                          <div style={{ whiteSpace: "nowrap" }}>
+                            {item.name} ({item.value})
+                          </div>
+                          <div>({percentage}%)</div>
                         </div>
-                        <div>({percentage}%)</div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
 
-                  <ResponsiveContainer width="100%" height={200}>
-                    <PieChart>
-                      <Pie
-                        data={productivityData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={0}
-                        outerRadius={75}
-                        paddingAngle={0}
-                        dataKey="value"
-                        startAngle={90}
-                        endAngle={-270}
+                    {productivityData && productivityData.length > 0 ? (
+                      <ResponsiveContainer
+                        width="100%"
+                        height={200}
+                        key={loggedInUser.userRole}
                       >
-                        {productivityData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
-                            const data = payload[0];
-                            const totalValue = productivityData.reduce(
-                              (sum, d) => sum + d.value,
-                              0
-                            );
-                            const percentage = Math.round(
-                              (data.value / totalValue) * 100
-                            );
+                        <PieChart>
+                          <Pie
+                            data={productivityData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={0}
+                            outerRadius={75}
+                            paddingAngle={0}
+                            dataKey="value"
+                            startAngle={90}
+                            endAngle={-270}
+                          >
+                            {productivityData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                const data = payload[0];
+                                const totalValue = productivityData.reduce(
+                                  (sum, d) => sum + d.value,
+                                  0
+                                );
+                                const percentage = Math.round(
+                                  (data.value / totalValue) * 100
+                                );
 
-                            return (
-                              <div
-                                style={{
-                                  backgroundColor: "#fff",
-                                  border: "1px solid #e5e7eb",
-                                  borderRadius: "8px",
-                                  padding: "12px",
-                                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                                }}
-                              >
-                                <p
-                                  style={{
-                                    margin: 0,
-                                    fontWeight: 600,
-                                    color: "#111827",
-                                    marginBottom: "4px",
-                                  }}
-                                >
-                                  {data.name}
-                                </p>
-                                <p
-                                  style={{
-                                    margin: 0,
-                                    color: "#6b7280",
-                                    fontSize: "14px",
-                                  }}
-                                >
-                                  Employees:{" "}
-                                  <span
+                                return (
+                                  <div
                                     style={{
-                                      fontWeight: 600,
-                                      color: "#111827",
+                                      backgroundColor: "#fff",
+                                      border: "1px solid #e5e7eb",
+                                      borderRadius: "8px",
+                                      padding: "12px",
+                                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                                     }}
                                   >
-                                    {data.value}
-                                  </span>
-                                </p>
-                                <p
-                                  style={{
-                                    margin: 0,
-                                    color: "#6b7280",
-                                    fontSize: "14px",
-                                    marginTop: "2px",
-                                  }}
-                                >
-                                  Percentage:{" "}
-                                  <span
-                                    style={{
-                                      fontWeight: 600,
-                                      color: "#111827",
-                                    }}
-                                  >
-                                    {percentage}%
-                                  </span>
-                                </p>
-                              </div>
-                            );
-                          }
-                          return null;
+                                    <p
+                                      style={{
+                                        margin: 0,
+                                        fontWeight: 600,
+                                        color: "#111827",
+                                        marginBottom: "4px",
+                                      }}
+                                    >
+                                      {data.name}
+                                    </p>
+                                    <p
+                                      style={{
+                                        margin: 0,
+                                        color: "#6b7280",
+                                        fontSize: "14px",
+                                      }}
+                                    >
+                                      Employees:{" "}
+                                      <span
+                                        style={{
+                                          fontWeight: 600,
+                                          color: "#111827",
+                                        }}
+                                      >
+                                        {data.value}
+                                      </span>
+                                    </p>
+                                    <p
+                                      style={{
+                                        margin: 0,
+                                        color: "#6b7280",
+                                        fontSize: "14px",
+                                        marginTop: "2px",
+                                      }}
+                                    >
+                                      Percentage:{" "}
+                                      <span
+                                        style={{
+                                          fontWeight: 600,
+                                          color: "#111827",
+                                        }}
+                                      >
+                                        {percentage}%
+                                      </span>
+                                    </p>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div
+                        style={{
+                          textAlign: "center",
+                          padding: "40px",
+                          color: "#9ca3af",
                         }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </Card>
-            </Col>
+                      >
+                        No data available
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </Col>
+            )}
 
             {loggedInUser.userRole === "admin" && (
               <Col xs={24} md={12}>
@@ -2122,9 +2305,9 @@ export default function AttendanceDashboard() {
           </Row>
 
           {/* Work Hours Summary for Employee - New Row */}
-          {loggedInUser.userRole === "employee" && (
+          {/* {loggedInUser.userRole === "employee" && (
             <Row gutter={[16, 16]} style={{ marginBottom: "16px" }}>
-              <Col xs={24}>
+              <Col xs={24} md={loggedInUser.userRole === "admin" ? 12 : 24}>
                 <Card
                   title={
                     <Text
@@ -2169,7 +2352,7 @@ export default function AttendanceDashboard() {
                 </Card>
               </Col>
             </Row>
-          )}
+          )} */}
 
           {loggedInUser.userRole === "admin" && (
             <>
@@ -2206,6 +2389,8 @@ export default function AttendanceDashboard() {
                     <Button
                       type="primary"
                       icon={<DownloadOutlined />}
+                      loading={csvLoading} // ✅ Add loading prop
+                      disabled={csvLoading}
                       onClick={handleDownloadCSV}
                       style={{
                         backgroundColor: "#10b981",
@@ -2214,24 +2399,29 @@ export default function AttendanceDashboard() {
                     >
                       CSV
                     </Button>
-
                     <Button
                       icon={<FileTextOutlined />}
+                      loading={pdfLoading} // ✅ Add loading prop
+                      disabled={pdfLoading} // ✅ Disable while loading
                       style={{
                         backgroundColor: "#10b981",
                         borderColor: "#10b981",
                         color: "white",
                         marginLeft: 8,
                       }}
-                      onClick={() => {
-                        if (typeof window.jspdf === "undefined") {
-                          message.error(
-                            "PDF library not loaded yet. Please wait a moment."
-                          );
-                          return;
-                        }
+                      onClick={async () => {
+                        // ✅ Make async
+                        setPdfLoading(true); // ✅ Start loading
 
                         try {
+                          if (typeof window.jspdf === "undefined") {
+                            message.error(
+                              "PDF library not loaded yet. Please wait a moment."
+                            );
+                            setPdfLoading(false);
+                            return;
+                          }
+
                           const today = new Date();
                           today.setHours(0, 0, 0, 0);
 
@@ -2246,6 +2436,7 @@ export default function AttendanceDashboard() {
 
                           if (presentToday.length === 0) {
                             message.warning("No employees present today!");
+                            setPdfLoading(false);
                             return;
                           }
 
@@ -2302,6 +2493,25 @@ export default function AttendanceDashboard() {
                                 )
                               : "N/A";
 
+                            const checkOutTime = record.checkOut
+                              ? new Date(record.checkOut).toLocaleTimeString(
+                                  "en-US",
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  }
+                                )
+                              : "In Progress";
+
+                            const workingDuration =
+                              (record as any).workDuration ||
+                              record.workingTime ||
+                              (record.workingHours
+                                ? `${record.workingHours.toFixed(2)} hrs`
+                                : null) ||
+                              (record.checkOut ? "Completed" : "In Progress");
+
                             doc.setFontSize(10);
                             doc.setFont("helvetica", "bold");
                             doc.text(`Employee ${index + 1}`, 15, yPos);
@@ -2325,14 +2535,10 @@ export default function AttendanceDashboard() {
                             yPos += 5;
                             doc.text(`Check-In: ${checkInTime}`, 20, yPos);
                             yPos += 5;
-                            doc.text(
-                              `Check-Out: ${record.checkOut || "In Progress"}`,
-                              20,
-                              yPos
-                            );
+                            doc.text(`Check-Out: ${checkOutTime}`, 20, yPos);
                             yPos += 5;
                             doc.text(
-                              `Working Time: ${record.workingTime || "0h 0m"}`,
+                              `Working Time: ${workingDuration}`,
                               20,
                               yPos
                             );
@@ -2351,6 +2557,8 @@ export default function AttendanceDashboard() {
                             "Failed to download PDF: " +
                               (error?.message || "Unknown error")
                           );
+                        } finally {
+                          setPdfLoading(false); // ✅ Stop loading
                         }
                       }}
                     >
@@ -2635,28 +2843,34 @@ export default function AttendanceDashboard() {
             </Button>
           </Card>
 
-          <Card
-            title={
-              <Text
-                style={{ fontSize: "16px", fontWeight: 600, color: "#111827" }}
-              >
-                All Employees
-              </Text>
-            }
-            bordered={false}
-            style={{
-              borderRadius: "16px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-            }}
-          >
-            <Table
-              columns={employeeColumns}
-              dataSource={employees}
-              rowKey="email"
-              pagination={{ pageSize: 5, showSizeChanger: false }}
-              scroll={{ x: 400 }}
-            />
-          </Card>
+          {loggedInUser.userRole === "admin" && (
+            <Card
+              title={
+                <Text
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: 600,
+                    color: "#111827",
+                  }}
+                >
+                  All Employees
+                </Text>
+              }
+              bordered={false}
+              style={{
+                borderRadius: "16px",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+              }}
+            >
+              <Table
+                columns={employeeColumns}
+                dataSource={employees}
+                rowKey="email"
+                pagination={{ pageSize: 5, showSizeChanger: false }}
+                scroll={{ x: 400 }}
+              />
+            </Card>
+          )}
         </Col>
       </Row>
 
@@ -3179,7 +3393,7 @@ export default function AttendanceDashboard() {
       >
         {/* Shift Statistics Summary */}
         <Row gutter={[12, 12]} style={{ marginBottom: "20px" }}>
-          <Col xs={12} sm={6}>
+          <Col xs={12} sm={8}>
             <Card
               size="small"
               style={{
@@ -3213,7 +3427,7 @@ export default function AttendanceDashboard() {
             </Card>
           </Col>
 
-          <Col xs={12} sm={6}>
+          <Col xs={12} sm={8}>
             <Card
               size="small"
               style={{
@@ -3247,7 +3461,7 @@ export default function AttendanceDashboard() {
             </Card>
           </Col>
 
-          <Col xs={12} sm={6}>
+          <Col xs={12} sm={8}>
             <Card
               size="small"
               style={{
@@ -3281,7 +3495,7 @@ export default function AttendanceDashboard() {
             </Card>
           </Col>
 
-          <Col xs={12} sm={6}>
+          {/* <Col xs={12} sm={6}>
             <Card
               size="small"
               style={{
@@ -3313,7 +3527,7 @@ export default function AttendanceDashboard() {
                 </Text>
               </div>
             </Card>
-          </Col>
+          </Col> */}
         </Row>
 
         <Divider style={{ margin: "16px 0" }} />
@@ -3401,44 +3615,44 @@ export default function AttendanceDashboard() {
                 );
               },
             },
-            {
-              title: "Duration",
-              key: "duration",
-              width: 200,
-              render: (_: any, record: Employee) => {
-                const shiftInfo = getEmployeeShiftInfo(record);
-                if (shiftInfo.startDate === "N/A") {
-                  return <Text type="secondary">Default Schedule</Text>;
-                }
-                return (
-                  <div>
-                    <Text style={{ fontSize: "12px", display: "block" }}>
-                      From: {new Date(shiftInfo.startDate).toLocaleDateString()}
-                    </Text>
-                    <Text style={{ fontSize: "12px", display: "block" }}>
-                      To: {new Date(shiftInfo.endDate).toLocaleDateString()}
-                    </Text>
-                  </div>
-                );
-              },
-            },
-            {
-              title: "Assigned By",
-              key: "assignedBy",
-              width: 120,
-              render: (_: any, record: Employee) => {
-                const shiftInfo = getEmployeeShiftInfo(record);
-                return (
-                  <Tag
-                    color={
-                      shiftInfo.assignedBy === "Default" ? "default" : "blue"
-                    }
-                  >
-                    {shiftInfo.assignedBy}
-                  </Tag>
-                );
-              },
-            },
+            // {
+            //   title: "Duration",
+            //   key: "duration",
+            //   width: 200,
+            //   render: (_: any, record: Employee) => {
+            //     const shiftInfo = getEmployeeShiftInfo(record);
+            //     if (shiftInfo.startDate === "N/A") {
+            //       return <Text type="secondary">Default Schedule</Text>;
+            //     }
+            //     return (
+            //       <div>
+            //         <Text style={{ fontSize: "12px", display: "block" }}>
+            //           From: {new Date(shiftInfo.startDate).toLocaleDateString()}
+            //         </Text>
+            //         <Text style={{ fontSize: "12px", display: "block" }}>
+            //           To: {new Date(shiftInfo.endDate).toLocaleDateString()}
+            //         </Text>
+            //       </div>
+            //     );
+            //   },
+            // },
+            // {
+            //   title: "Assigned By",
+            //   key: "assignedBy",
+            //   width: 120,
+            //   render: (_: any, record: Employee) => {
+            //     const shiftInfo = getEmployeeShiftInfo(record);
+            //     return (
+            //       <Tag
+            //         color={
+            //           shiftInfo.assignedBy === "Default" ? "default" : "blue"
+            //         }
+            //       >
+            //         {shiftInfo.assignedBy}
+            //       </Tag>
+            //     );
+            //   },
+            // },
           ]}
           dataSource={getPaginatedShiftEmployees()}
           rowKey="email"
