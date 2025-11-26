@@ -47,7 +47,10 @@ interface DashboardAttendanceProps {
   setDateRange: (dates: [Dayjs | null, Dayjs | null] | null) => void;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+// const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://flextrack-be-production.up.railway.app/api";
 
 const DashboardAttendance: React.FC<DashboardAttendanceProps> = ({
   dateRange,
