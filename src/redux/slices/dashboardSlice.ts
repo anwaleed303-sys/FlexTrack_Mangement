@@ -1284,11 +1284,23 @@ export const fetchNotifications = createAsyncThunk(
     }
   }
 );
-
 export const fetchRecentNotifications = createAsyncThunk(
   "dashboard/fetchRecentNotifications",
   async (_, { rejectWithValue }) => {
     try {
+      // CHECK IF ALERTS ARE ENABLED
+      const loggedInUser = localStorage.getItem("loggedInUser");
+      if (loggedInUser) {
+        const user = JSON.parse(loggedInUser);
+        // If alerts are disabled, return empty data
+        if (user.alerts === false) {
+          return {
+            notifications: [],
+            unreadCount: 0,
+          };
+        }
+      }
+
       const response = await axios.get(
         `${API_URL}/notifications/recent`,
         getAuthConfig()
@@ -1301,6 +1313,22 @@ export const fetchRecentNotifications = createAsyncThunk(
     }
   }
 );
+// export const fetchRecentNotifications = createAsyncThunk(
+//   "dashboard/fetchRecentNotifications",
+//   async (_, { rejectWithValue }) => {
+//     try {
+//       const response = await axios.get(
+//         `${API_URL}/notifications/recent`,
+//         getAuthConfig()
+//       );
+//       return response.data.data;
+//     } catch (error: any) {
+//       return rejectWithValue(
+//         error.response?.data?.message || "Failed to fetch recent notifications"
+//       );
+//     }
+//   }
+// );
 
 export const fetchUnreadCount = createAsyncThunk(
   "dashboard/fetchUnreadCount",

@@ -447,6 +447,7 @@ import {
   List,
   Button,
   Tag,
+  Spin,
 } from "antd";
 import {
   BellOutlined,
@@ -495,6 +496,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobile = false }) => {
     useSelector((state: RootState) => state.dashboard);
 
   const [profileImage, setProfileImage] = useState<string>("");
+  const [imageUploading, setImageUploading] = useState(false);
   const [userData, setUserData] = useState<UserData>({
     name: "User",
     email: "",
@@ -516,8 +518,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobile = false }) => {
         });
         setProfileImage(user.profileImage || "");
 
-        // Load notifications
-        dispatch(fetchRecentNotifications());
+        // ONLY LOAD NOTIFICATIONS IF ALERTS ARE ENABLED
+        if (user.alerts !== false) {
+          dispatch(fetchRecentNotifications());
+        }
       } catch (error) {
         console.error("Error parsing user data:", error);
       }
@@ -525,13 +529,40 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobile = false }) => {
 
     // Refresh notifications every 10 seconds
     const interval = setInterval(() => {
-      dispatch(fetchRecentNotifications());
+      const loggedInUser = localStorage.getItem("loggedInUser");
+      if (loggedInUser) {
+        const user = JSON.parse(loggedInUser);
+        // ONLY REFRESH IF ALERTS ARE ENABLED
+        if (user.alerts !== false) {
+          dispatch(fetchRecentNotifications());
+        }
+      }
     }, 10000);
 
-    // ADD THIS: Listen for profile updates
+    // Listen for profile updates
     const handleProfileUpdate = (event: CustomEvent) => {
       if (event.detail?.profileImage) {
         setProfileImage(event.detail.profileImage);
+      }
+      if (event.detail?.uploading !== undefined) {
+        setImageUploading(false);
+      }
+      // REFRESH ALERTS PREFERENCE
+      if (event.detail?.alerts !== undefined) {
+        const loggedInUser = localStorage.getItem("loggedInUser");
+        if (loggedInUser) {
+          const user = JSON.parse(loggedInUser);
+          if (user.alerts) {
+            dispatch(fetchRecentNotifications());
+          }
+        }
+      }
+    };
+
+    // ADD THIS: Listen for image uploading state
+    const handleImageUploading = (event: CustomEvent) => {
+      if (event.detail?.uploading !== undefined) {
+        setImageUploading(event.detail.uploading);
       }
     };
 
@@ -540,14 +571,69 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobile = false }) => {
       handleProfileUpdate as EventListener
     );
 
+    window.addEventListener(
+      "profileImageUploading",
+      handleImageUploading as EventListener
+    );
+
     return () => {
       clearInterval(interval);
       window.removeEventListener(
         "profileUpdated",
         handleProfileUpdate as EventListener
       );
+      window.removeEventListener(
+        "profileImageUploading",
+        handleImageUploading as EventListener
+      );
     };
   }, [dispatch]);
+  // useEffect(() => {
+  //   // Get user data from localStorage
+  //   const loggedInUser = localStorage.getItem("loggedInUser");
+  //   if (loggedInUser) {
+  //     try {
+  //       const user = JSON.parse(loggedInUser);
+  //       setUserData({
+  //         name: user.name || user.fullName || "User",
+  //         email: user.email || "",
+  //         role: user.userRole === "admin" ? "Admin" : "Employee",
+  //         specificRole: user.specificRole || "",
+  //       });
+  //       setProfileImage(user.profileImage || "");
+
+  //       // Load notifications
+  //       dispatch(fetchRecentNotifications());
+  //     } catch (error) {
+  //       console.error("Error parsing user data:", error);
+  //     }
+  //   }
+
+  //   // Refresh notifications every 10 seconds
+  //   const interval = setInterval(() => {
+  //     dispatch(fetchRecentNotifications());
+  //   }, 10000);
+
+  //   // ADD THIS: Listen for profile updates
+  //   const handleProfileUpdate = (event: CustomEvent) => {
+  //     if (event.detail?.profileImage) {
+  //       setProfileImage(event.detail.profileImage);
+  //     }
+  //   };
+
+  //   window.addEventListener(
+  //     "profileUpdated",
+  //     handleProfileUpdate as EventListener
+  //   );
+
+  //   return () => {
+  //     clearInterval(interval);
+  //     window.removeEventListener(
+  //       "profileUpdated",
+  //       handleProfileUpdate as EventListener
+  //     );
+  //   };
+  // }, [dispatch]);
   // useEffect(() => {
   //   // Get user data from localStorage
   //   const loggedInUser = localStorage.getItem("loggedInUser");
@@ -753,15 +839,21 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobile = false }) => {
             placement="bottomRight"
             trigger={["click"]}
           >
-            <Avatar
-              src={profileImage}
-              icon={!profileImage && <UserOutlined />}
-              style={{
-                backgroundColor: profileImage ? "transparent" : "#bfbfbf",
-                cursor: "pointer",
-              }}
-              size={isMobile ? 36 : 40}
-            />
+            <Badge
+              count={imageUploading ? <Spin size="small" /> : 0}
+              offset={[-5, 5]}
+            >
+              <Avatar
+                src={profileImage}
+                icon={!profileImage && <UserOutlined />}
+                style={{
+                  backgroundColor: profileImage ? "transparent" : "#bfbfbf",
+                  cursor: "pointer",
+                  opacity: imageUploading ? 0.6 : 1,
+                }}
+                size={isMobile ? 36 : 40}
+              />
+            </Badge>
           </Dropdown>
         </div>
 

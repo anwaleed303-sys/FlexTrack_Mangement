@@ -140,23 +140,62 @@ const Profile: React.FC = () => {
     return false;
   };
 
+  // const handleProfileUpdate = async () => {
+  //   try {
+  //     await dispatch(updateProfileImage(profileImage)).unwrap();
+  //     message.success("Profile image updated successfully!");
+
+  //     // Update localStorage
+  //     const loggedInUser = localStorage.getItem("loggedInUser");
+  //     if (loggedInUser) {
+  //       const userData = JSON.parse(loggedInUser);
+  //       userData.profileImage = profileImage;
+  //       localStorage.setItem("loggedInUser", JSON.stringify(userData));
+  //     }
+  //   } catch (err: any) {
+  //     message.error(err || "Failed to update profile image");
+  //   }
+  // };
+
   const handleProfileUpdate = async () => {
     try {
+      // DISPATCH EVENT TO SHOW LOADING IN HEADER
+      window.dispatchEvent(
+        new CustomEvent("profileImageUploading", {
+          detail: { uploading: true },
+        })
+      );
+
+      // THIS IS THE ACTUAL API CALL TO SAVE IMAGE IN DB
       await dispatch(updateProfileImage(profileImage)).unwrap();
+
       message.success("Profile image updated successfully!");
 
-      // Update localStorage
+      // Update localStorage after successful DB save
       const loggedInUser = localStorage.getItem("loggedInUser");
       if (loggedInUser) {
         const userData = JSON.parse(loggedInUser);
         userData.profileImage = profileImage;
         localStorage.setItem("loggedInUser", JSON.stringify(userData));
       }
+
+      // DISPATCH EVENT TO UPDATE HEADER WITH NEW IMAGE AND STOP LOADING
+      window.dispatchEvent(
+        new CustomEvent("profileUpdated", {
+          detail: { profileImage: profileImage, uploading: false },
+        })
+      );
     } catch (err: any) {
       message.error(err || "Failed to update profile image");
+
+      // DISPATCH EVENT TO STOP LOADING ON ERROR
+      window.dispatchEvent(
+        new CustomEvent("profileImageUploading", {
+          detail: { uploading: false },
+        })
+      );
     }
   };
-
   const handleCompanyUpdate = async (values: any) => {
     try {
       await dispatch(updateCompanyInfo(values)).unwrap();
@@ -189,7 +228,6 @@ const Profile: React.FC = () => {
       message.error(err || "Failed to change password");
     }
   };
-
   const handleNotificationChange = async (
     key: keyof typeof notificationPrefs
   ) => {
@@ -200,11 +238,54 @@ const Profile: React.FC = () => {
 
     try {
       await dispatch(updateNotificationPreferences(newPrefs)).unwrap();
-      message.success("Notification preferences updated");
+
+      // UPDATE LOCALSTORAGE
+      const loggedInUser = localStorage.getItem("loggedInUser");
+      if (loggedInUser) {
+        const userData = JSON.parse(loggedInUser);
+        userData[key] = newPrefs[key];
+        localStorage.setItem("loggedInUser", JSON.stringify(userData));
+      }
+
+      // DISPATCH CUSTOM EVENT TO UPDATE HEADER
+      window.dispatchEvent(
+        new CustomEvent("profileUpdated", {
+          detail: { [key]: newPrefs[key] },
+        })
+      );
+
+      if (key === "emailNotifications" && newPrefs[key] === true) {
+        message.success(
+          "Email notifications enabled! You will receive alerts at your registered email.",
+          5
+        );
+      } else if (key === "alerts" && newPrefs[key] === true) {
+        message.success(
+          "Alerts enabled! You will receive in-app notifications.",
+          5
+        );
+      } else {
+        message.success("Notification preferences updated");
+      }
     } catch (err: any) {
       message.error(err || "Failed to update notification preferences");
     }
   };
+  // const handleNotificationChange = async (
+  //   key: keyof typeof notificationPrefs
+  // ) => {
+  //   const newPrefs = {
+  //     ...notificationPrefs,
+  //     [key]: !notificationPrefs[key],
+  //   };
+
+  //   try {
+  //     await dispatch(updateNotificationPreferences(newPrefs)).unwrap();
+  //     message.success("Notification preferences updated");
+  //   } catch (err: any) {
+  //     message.error(err || "Failed to update notification preferences");
+  //   }
+  // };
 
   if (!user) {
     return (

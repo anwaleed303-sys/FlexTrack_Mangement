@@ -575,7 +575,7 @@ const QuickStatsCards: React.FC = () => {
                     marginBottom: "4px",
                   }}
                 >
-                  Weekly Hours: <strong>{weeklyHours}</strong>
+                  {/* Weekly Hours: <strong>{weeklyHours}</strong> */}
                 </Text>
                 {hasMarkedToday && (
                   <Tag color="green" style={{ marginTop: "8px" }}>

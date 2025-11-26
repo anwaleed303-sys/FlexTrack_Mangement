@@ -256,7 +256,7 @@ export default function ExportModal() {
       payType: record.payType || "N/A",
       currency: record.currency || "$",
       basePay: record.basePay || record.payAmount || 0,
-      hoursWorked: record.hoursWorked || record.totalHours || 0,
+      hoursWorked: record.workedHours || record.hoursWorked || 0,
       totalPay: record.totalPay || 0,
     }));
 
@@ -372,17 +372,17 @@ export default function ExportModal() {
       render: (time: string) =>
         time ? dayjs(time).format("hh:mm A") : "In Progress",
     },
-    {
-      title: "Working Time",
-      dataIndex: "workingTime",
-      key: "workingTime",
-    },
+    // {
+    //   title: "Working Time",
+    //   dataIndex: "workingTime",
+    //   key: "workingTime",
+    // },
     {
       title: "Status",
       dataIndex: "status",
       key: "status",
       render: (status: string) => (
-        <Tag color={status === "present" ? "green" : "red"}>
+        <Tag color={status?.toLowerCase() === "present" ? "green" : "red"}>
           {status ? status.toUpperCase() : "N/A"}
         </Tag>
       ),
@@ -453,7 +453,7 @@ export default function ExportModal() {
         `${record.currency}${pay?.toLocaleString() || 0}`,
     },
     {
-      title: "Hours Worked",
+      title: "Worked Hours ",
       dataIndex: "hoursWorked",
       key: "hoursWorked",
       render: (hours: number) => `${hours?.toFixed(2) || 0} hrs`,
@@ -700,20 +700,22 @@ export default function ExportModal() {
                 />
               </Col>
 
-              <Col xs={24} sm={12}>
-                <Select
-                  placeholder="Shift"
-                  style={{ width: "100%", borderRadius: 8 }}
-                  value={selectedShift}
-                  onChange={setSelectedShift}
-                >
-                  <Option value="morning">Morning (6 AM - 2 PM)</Option>
-                  <Option value="afternoon">Afternoon (2 PM - 10 PM)</Option>
-                  <Option value="evening">Evening (10 PM - 6 AM)</Option>
-                </Select>
-              </Col>
+              {loggedInUser.userRole === "admin" && (
+                <Col xs={24} sm={12}>
+                  <Select
+                    placeholder="Shift"
+                    style={{ width: "100%", borderRadius: 8 }}
+                    value={selectedShift}
+                    onChange={setSelectedShift}
+                  >
+                    <Option value="morning">Morning (6 AM - 2 PM)</Option>
+                    <Option value="afternoon">Afternoon (2 PM - 10 PM)</Option>
+                    <Option value="evening">Evening (10 PM - 6 AM)</Option>
+                  </Select>
+                </Col>
+              )}
 
-              <Col xs={24} sm={12}>
+              <Col xs={24} sm={loggedInUser.userRole === "admin" ? 12 : 24}>
                 <Select
                   placeholder="Report Format"
                   style={{ width: "100%", borderRadius: 8 }}

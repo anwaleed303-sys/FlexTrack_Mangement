@@ -600,6 +600,18 @@ const shiftsSlice = createSlice({
       });
 
     // Fetch Assignments
+    // builder
+    //   .addCase(fetchShiftAssignments.pending, (state) => {
+    //     state.loading = true;
+    //     state.error = null;
+    //   })
+    //   .addCase(fetchShiftAssignments.fulfilled, (state, action) => {
+    //     state.loading = false;
+    //     if (action.payload.assignments) {
+    //       state.assignments = action.payload.assignments;
+    //     }
+    //   })
+    // Fetch Assignments
     builder
       .addCase(fetchShiftAssignments.pending, (state) => {
         state.loading = true;
@@ -607,9 +619,8 @@ const shiftsSlice = createSlice({
       })
       .addCase(fetchShiftAssignments.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload.assignments) {
-          state.assignments = action.payload.assignments;
-        }
+        // ✅ ALWAYS UPDATE, EVEN IF EMPTY
+        state.assignments = action.payload.assignments || [];
       })
       .addCase(fetchShiftAssignments.rejected, (state, action) => {
         state.loading = false;
@@ -634,6 +645,8 @@ const shiftsSlice = createSlice({
       });
 
     // Fetch Requests
+
+    // Fetch Requests
     builder
       .addCase(fetchShiftRequests.pending, (state) => {
         state.loading = true;
@@ -641,15 +654,42 @@ const shiftsSlice = createSlice({
       })
       .addCase(fetchShiftRequests.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload.requests) {
-          state.requests = action.payload.requests;
-        }
+        // ✅ ALWAYS UPDATE, EVEN IF EMPTY
+        state.requests = action.payload.requests || [];
       })
+      // builder
+      //   .addCase(fetchShiftRequests.pending, (state) => {
+      //     state.loading = true;
+      //     state.error = null;
+      //   })
+      //   .addCase(fetchShiftRequests.fulfilled, (state, action) => {
+      //     state.loading = false;
+      //     if (action.payload.requests) {
+      //       state.requests = action.payload.requests;
+      //     }
+      //   })
       .addCase(fetchShiftRequests.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });
 
+    // Review Request
+    // builder
+    //   .addCase(reviewShiftRequestAsync.pending, (state) => {
+    //     state.loading = true;
+    //     state.error = null;
+    //   })
+    //   .addCase(reviewShiftRequestAsync.fulfilled, (state, action) => {
+    //     state.loading = false;
+    //     if (action.payload.request) {
+    //       const index = state.requests.findIndex(
+    //         (req) => req.id === action.payload.request.id
+    //       );
+    //       if (index !== -1) {
+    //         state.requests[index] = action.payload.request;
+    //       }
+    //     }
+    //   })
     // Review Request
     builder
       .addCase(reviewShiftRequestAsync.pending, (state) => {
@@ -658,9 +698,10 @@ const shiftsSlice = createSlice({
       })
       .addCase(reviewShiftRequestAsync.fulfilled, (state, action) => {
         state.loading = false;
+        // ✅ USE _id NOT id
         if (action.payload.request) {
           const index = state.requests.findIndex(
-            (req) => req.id === action.payload.request.id
+            (req) => req._id === action.payload.request._id
           );
           if (index !== -1) {
             state.requests[index] = action.payload.request;
