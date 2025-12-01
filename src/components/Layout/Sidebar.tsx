@@ -96,15 +96,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             if (isMobile) onClose();
           },
         },
-        // {
-        //   key: "account",
-        //   label: "Account",
-        //   icon: <SettingOutlined />,
-        //   onClick: () => {
-        //     router.push("/settings/account");
-        //     if (isMobile) onClose();
-        //   },
-        // },
       ],
     },
   ];
@@ -118,8 +109,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     if (path.includes("/attendance")) return ["attendance"];
     if (path.includes("/shifts")) return ["shifts"];
     if (path.includes("/reports")) return ["reports"];
-    if (path.includes("/settings/account")) return ["account"]; // check account first
-    if (path === "/settings") return ["profile"]; // then profile
+    if (path.includes("/settings/account")) return ["account"];
+    if (path === "/settings") return ["profile"];
     return ["dashboard"];
   };
 

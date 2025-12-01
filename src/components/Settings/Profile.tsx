@@ -36,7 +36,6 @@ import {
   updateNotificationPreferences,
   getEmploymentDetails,
 } from "../../redux/slices/settingsSlice";
-// import App from "@/src/pages/_app";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -140,7 +139,6 @@ const Profile: React.FC = () => {
     return false;
   };
 
-  // const handleProfileUpdate = async () => {
   //   try {
   //     await dispatch(updateProfileImage(profileImage)).unwrap();
   //     message.success("Profile image updated successfully!");
@@ -159,7 +157,6 @@ const Profile: React.FC = () => {
 
   const handleProfileUpdate = async () => {
     try {
-      // DISPATCH EVENT TO SHOW LOADING IN HEADER
       window.dispatchEvent(
         new CustomEvent("profileImageUploading", {
           detail: { uploading: true },
@@ -179,7 +176,6 @@ const Profile: React.FC = () => {
         localStorage.setItem("loggedInUser", JSON.stringify(userData));
       }
 
-      // DISPATCH EVENT TO UPDATE HEADER WITH NEW IMAGE AND STOP LOADING
       window.dispatchEvent(
         new CustomEvent("profileUpdated", {
           detail: { profileImage: profileImage, uploading: false },
@@ -188,7 +184,6 @@ const Profile: React.FC = () => {
     } catch (err: any) {
       message.error(err || "Failed to update profile image");
 
-      // DISPATCH EVENT TO STOP LOADING ON ERROR
       window.dispatchEvent(
         new CustomEvent("profileImageUploading", {
           detail: { uploading: false },
@@ -271,21 +266,6 @@ const Profile: React.FC = () => {
       message.error(err || "Failed to update notification preferences");
     }
   };
-  // const handleNotificationChange = async (
-  //   key: keyof typeof notificationPrefs
-  // ) => {
-  //   const newPrefs = {
-  //     ...notificationPrefs,
-  //     [key]: !notificationPrefs[key],
-  //   };
-
-  //   try {
-  //     await dispatch(updateNotificationPreferences(newPrefs)).unwrap();
-  //     message.success("Notification preferences updated");
-  //   } catch (err: any) {
-  //     message.error(err || "Failed to update notification preferences");
-  //   }
-  // };
 
   if (!user) {
     return (
@@ -434,18 +414,18 @@ const Profile: React.FC = () => {
               <Button
                 type="primary"
                 onClick={handleProfileUpdate}
-                loading={loading}
+                // loading={loading}
                 disabled={!profileImage || profileImage === user.profileImage}
                 style={{
                   background: "linear-gradient(135deg, #00D4B1, #0066FF)",
                   border: "none",
                   borderRadius: "8px",
                   height: "45px",
-                  width: "50%",
-                  fontWeight: 500,
+                  width: "30%",
+                  // fontWeight: 500,
                 }}
               >
-                Update Profile Image
+                Update Image
               </Button>
             </Col>
           </Row>
@@ -549,7 +529,8 @@ const Profile: React.FC = () => {
           style={{
             borderRadius: "16px",
             boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-            marginBottom: "24px",
+            marginBottom: "16px",
+            padding: "16px", // reduced height
           }}
         >
           <Form
@@ -558,18 +539,16 @@ const Profile: React.FC = () => {
             onFinish={handleCompanyUpdate}
             size="large"
           >
-            <Row gutter={[16, 16]}>
+            {/* Row 1: Company Name + Company Email */}
+            <Row gutter={[16, 8]}>
               <Col xs={24} md={12}>
-                <Title level={5} style={{ marginBottom: "8px" }}>
+                <Title level={5} style={{ marginBottom: "6px" }}>
                   Company Name
                 </Title>
                 <Form.Item
                   name="companyName"
                   rules={[
-                    {
-                      required: true,
-                      message: "Please enter company name",
-                    },
+                    { required: true, message: "Please enter company name" },
                   ]}
                 >
                   <Input
@@ -579,49 +558,16 @@ const Profile: React.FC = () => {
                   />
                 </Form.Item>
               </Col>
-              <Col xs={24} md={12}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    paddingLeft: "100px",
-                  }}
-                >
-                  <Title level={5} style={{ marginBottom: 0 }}>
-                    Email Notifications
-                  </Title>
-                  <Switch
-                    checked={notificationPrefs.emailNotifications}
-                    onChange={() =>
-                      handleNotificationChange("emailNotifications")
-                    }
-                    style={{
-                      background: notificationPrefs.emailNotifications
-                        ? "#00D4B1"
-                        : undefined,
-                    }}
-                  />
-                </div>
-              </Col>
-            </Row>
 
-            <Row gutter={[16, 16]}>
               <Col xs={24} md={12}>
-                <Title level={5} style={{ marginBottom: "8px" }}>
+                <Title level={5} style={{ marginBottom: "6px" }}>
                   Company Email
                 </Title>
                 <Form.Item
                   name="companyEmail"
                   rules={[
-                    {
-                      required: true,
-                      message: "Please enter company email",
-                    },
-                    {
-                      type: "email",
-                      message: "Please enter a valid email",
-                    },
+                    { required: true, message: "Please enter company email" },
+                    { type: "email", message: "Please enter a valid email" },
                   ]}
                 >
                   <Input
@@ -633,41 +579,34 @@ const Profile: React.FC = () => {
               </Col>
             </Row>
 
-            <Row gutter={[16, 16]}>
+            {/* Row 2: Address + Timezone */}
+            <Row gutter={[16, 8]}>
               <Col xs={24} md={12}>
-                <Title level={5} style={{ marginBottom: "8px" }}>
+                <Title level={5} style={{ marginBottom: "6px" }}>
                   Address
                 </Title>
                 <Form.Item
                   name="companyAddress"
                   rules={[
-                    {
-                      required: true,
-                      message: "Please enter company address",
-                    },
+                    { required: true, message: "Please enter company address" },
                   ]}
                 >
                   <Input.TextArea
                     placeholder="Enter company address"
-                    rows={3}
+                    rows={1}
                     style={{ borderRadius: "8px" }}
                   />
                 </Form.Item>
               </Col>
-            </Row>
 
-            <Row gutter={[16, 16]}>
               <Col xs={24} md={12}>
-                <Title level={5} style={{ marginBottom: "8px" }}>
+                <Title level={5} style={{ marginBottom: "6px" }}>
                   Timezone
                 </Title>
                 <Form.Item
                   name="timezone"
                   rules={[
-                    {
-                      required: true,
-                      message: "Please select timezone",
-                    },
+                    { required: true, message: "Please select timezone" },
                   ]}
                 >
                   <Select
@@ -684,36 +623,13 @@ const Profile: React.FC = () => {
                   </Select>
                 </Form.Item>
               </Col>
-              <Col xs={24} md={12}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginTop: "16px",
-                    paddingLeft: "100px",
-                  }}
-                >
-                  <Title level={5} style={{ marginBottom: 0 }}>
-                    Company Alerts
-                  </Title>
-                  <Switch
-                    checked={notificationPrefs.alerts}
-                    onChange={() => handleNotificationChange("alerts")}
-                    style={{
-                      background: notificationPrefs.alerts
-                        ? "#00D4B1"
-                        : undefined,
-                    }}
-                  />
-                </div>
-              </Col>
             </Row>
 
-            <Divider />
+            <Divider style={{ margin: "12px 0" }} />
 
-            <Row gutter={16}>
-              <Col xs={24} sm={12}>
+            {/* Centered Button */}
+            <Row justify="center">
+              <Col>
                 <Button
                   type="primary"
                   htmlType="submit"
@@ -722,8 +638,8 @@ const Profile: React.FC = () => {
                     background: "linear-gradient(135deg, #00D4B1, #0066FF)",
                     border: "none",
                     borderRadius: "8px",
-                    height: "45px",
-                    width: "50%",
+                    height: "42px",
+                    width: "180px",
                     fontWeight: 500,
                   }}
                 >
@@ -732,80 +648,6 @@ const Profile: React.FC = () => {
               </Col>
             </Row>
           </Form>
-        </Card>
-      )}
-
-      {/* Notification Preferences for Employees */}
-      {user.userRole !== "admin" && (
-        <Card
-          title={
-            <Title level={5} style={{ margin: 0 }}>
-              Notification Preferences
-            </Title>
-          }
-          style={{
-            borderRadius: "16px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-            marginBottom: "24px",
-          }}
-        >
-          <Row gutter={[16, 24]}>
-            <Col xs={24} sm={12}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <Text strong>Email Notifications</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: "12px" }}>
-                    Receive updates via email
-                  </Text>
-                </div>
-                <Switch
-                  checked={notificationPrefs.emailNotifications}
-                  onChange={() =>
-                    handleNotificationChange("emailNotifications")
-                  }
-                  style={{
-                    background: notificationPrefs.emailNotifications
-                      ? "#00D4B1"
-                      : undefined,
-                  }}
-                />
-              </div>
-            </Col>
-
-            <Col xs={24} sm={12}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <Text strong>Alerts</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: "12px" }}>
-                    Receive important alerts
-                  </Text>
-                </div>
-                <Switch
-                  checked={notificationPrefs.alerts}
-                  onChange={() => handleNotificationChange("alerts")}
-                  style={{
-                    background: notificationPrefs.alerts
-                      ? "#00D4B1"
-                      : undefined,
-                  }}
-                />
-              </div>
-            </Col>
-          </Row>
         </Card>
       )}
 

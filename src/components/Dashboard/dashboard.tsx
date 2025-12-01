@@ -25,7 +25,8 @@ import {
   deleteAttendanceRecord,
   fetchRecentNotifications,
   fetchAnnouncements,
-} from "../../redux/slices/dashboardSlice"; // Adjust path to your slice
+  deleteEmployee,
+} from "../../redux/slices/dashboardSlice";
 import {
   Card,
   Row,
@@ -52,8 +53,6 @@ import {
   LockOutlined,
   DownloadOutlined,
   FileTextOutlined,
-  CalendarOutlined,
-  CheckOutlined,
   CloseOutlined,
 } from "@ant-design/icons";
 import {
@@ -68,7 +67,6 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import type { Dayjs } from "dayjs";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -83,6 +81,7 @@ declare global {
   }
 }
 interface Employee {
+  _id: string;
   name: string;
   email: string;
   profileImage?: string;
@@ -91,39 +90,21 @@ interface Employee {
   weeklyHours?: number;
 }
 
-interface AttendanceRecord {
-  id: number;
-  employeeId: string;
-  name: string;
-  date: string;
-  checkIn: string;
-  checkOut: string;
-  workDuration?: string;
-  // workingTime: string;
-  status: "present" | "absent";
-  workingHours?: number;
-}
-interface ProductivityData {
-  name: string;
-  value: number;
-  color: string;
-  [key: string]: string | number; // Add index signature
-}
 interface LeaveRequest {
-  _id: string; // ✅ Changed from 'id' to '_id'
+  _id: string;
   employeeId?: {
     _id: string;
     name: string;
     email: string;
   };
-  employeeName: string; // ✅ Add this
+  employeeName: string;
   leaveType: string;
-  startDate: string; // ✅ Changed from 'dates: any'
-  endDate: string; // ✅ Changed from 'dates: any'
-  totalDays?: number; // ✅ Add this
+  startDate: string;
+  endDate: string;
+  totalDays?: number;
   reason: string;
-  status: "Pending" | "Approved" | "Rejected"; // ✅ Use union type
-  date?: string; // ✅ Make optional
+  status: "Pending" | "Approved" | "Rejected";
+  date?: string;
   isCompanyWide?: boolean;
   holidayTitle?: string;
   approvedBy?: string;
@@ -139,30 +120,6 @@ interface LeaveRequest {
   };
   reviewedAt?: string;
   createdAt?: string;
-}
-// interface LeaveRequest {
-//   _id: string;
-//   id: string;
-//   name: string;
-//   dates: any;
-//   leaveType: string;
-//   reason: string;
-//   status: string;
-//   date: string;
-//   isCompanyWide?: boolean;
-//   holidayTitle?: string;
-//   approvedBy?: string;
-//   approvedDate?: string;
-//   rejectedBy?: string;
-//   rejectedDate?: string;
-//   rejectionReason?: string;
-// }
-interface Activity {
-  id: string;
-  employee: string;
-  action: string;
-  time: string;
-  type: "checkin" | "checkout" | "leave" | "admin";
 }
 
 const COLORS = {
@@ -188,12 +145,11 @@ export default function AttendanceDashboard() {
     workHoursSummary,
     checkInStatus,
     pendingLeaveCount,
-    loading,
+
     leaveBalances,
-    statsLoading,
+
     attendanceLoading,
-    leaveLoading,
-    error,
+    buttonLoading,
   } = useSelector((state: RootState) => state.dashboard);
 
   const [jsPDFLib, setJsPDFLib] = useState<any>(null);
@@ -221,9 +177,7 @@ export default function AttendanceDashboard() {
   const [searchText, setSearchText] = useState("");
   const [reportModal, setReportModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
-  // Remove these lines - use Redux state instead
-  const isUserCheckedIn = checkInStatus.isCheckedIn;
-  const userCheckInTime = checkInStatus.checkInTime;
+
   const [csvLoading, setCsvLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [leaveMode, setLeaveMode] = useState<"individual" | "company">(
@@ -248,7 +202,7 @@ export default function AttendanceDashboard() {
 
     return () => clearInterval(interval);
   }, [dispatch]);
-  // useEffect(() => {
+
   //   // Load logged in user
   //   const user = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
   //   setLoggedInUser(user);
@@ -286,10 +240,9 @@ export default function AttendanceDashboard() {
       "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
     script.async = true;
     script.onload = () => {
-      // ✅ Safely load jsPDF
       if (window.jspdf?.jsPDF) {
         setJsPDFLib(window.jspdf.jsPDF);
-        setIsPDFLoading(false); // ✅ Set loading to false
+        setIsPDFLoading(false);
       }
     };
     document.head.appendChild(script);
@@ -299,7 +252,6 @@ export default function AttendanceDashboard() {
     };
   }, []);
 
-  // ✅ CSV Download
   // ✅ CSV Download - Update handleDownloadCSV function
   // const handleDownloadCSV = () => {
   //   try {
@@ -390,7 +342,6 @@ export default function AttendanceDashboard() {
       const rows = presentToday.map((record) => {
         const emp = employees.find((e) => e.name === record.employeeId.name);
 
-        // ✅ Format check-in time
         const checkInTime = record.checkIn
           ? new Date(record.checkIn).toLocaleTimeString("en-US", {
               hour: "2-digit",
@@ -399,7 +350,6 @@ export default function AttendanceDashboard() {
             })
           : "N/A";
 
-        // ✅ Format check-out time
         const checkOutTime = record.checkOut
           ? new Date(record.checkOut).toLocaleTimeString("en-US", {
               hour: "2-digit",
@@ -408,7 +358,6 @@ export default function AttendanceDashboard() {
             })
           : "In Progress";
 
-        // ✅ Get working duration - check multiple possible field names
         const workingDuration =
           (record as any).workDuration ||
           record.workingTime ||
@@ -445,13 +394,10 @@ export default function AttendanceDashboard() {
       console.error("CSV Download Error:", error);
       message.error("Failed to download CSV!");
     } finally {
-      setCsvLoading(false); // ✅ Stop loading
+      setCsvLoading(false);
     }
   };
 
-  // ✅ PDF Download
-  // ✅ PDF Download
-  // ✅ PDF Download
   const handleDownloadPDF = () => {
     if (!jsPDFLib) {
       message.error("PDF library not loaded yet. Please wait a moment.");
@@ -502,7 +448,6 @@ export default function AttendanceDashboard() {
           yPos = 20;
         }
 
-        // ✅ Format check-in time
         const checkInTime = record.checkIn
           ? new Date(record.checkIn).toLocaleTimeString("en-US", {
               hour: "2-digit",
@@ -511,7 +456,6 @@ export default function AttendanceDashboard() {
             })
           : "N/A";
 
-        // ✅ Format check-out time
         const checkOutTime = record.checkOut
           ? new Date(record.checkOut).toLocaleTimeString("en-US", {
               hour: "2-digit",
@@ -520,7 +464,6 @@ export default function AttendanceDashboard() {
             })
           : "In Progress";
 
-        // ✅ Get working duration - check multiple possible field names
         const workingDuration =
           (record as any).workDuration ||
           record.workingTime ||
@@ -546,7 +489,7 @@ export default function AttendanceDashboard() {
         yPos += 5;
         doc.text(`Check-Out: ${checkOutTime}`, 20, yPos);
         yPos += 5;
-        doc.text(`Working Time: ${workingDuration}`, 20, yPos); // ✅ Use workingDuration
+        doc.text(`Working Time: ${workingDuration}`, 20, yPos);
         yPos += 8;
 
         doc.setDrawColor(200, 200, 200);
@@ -564,7 +507,6 @@ export default function AttendanceDashboard() {
     }
   };
 
-  // const loadData = () => {
   //   const empData: Employee[] = JSON.parse(
   //     localStorage.getItem("employees") || "[]"
   //   );
@@ -627,11 +569,10 @@ export default function AttendanceDashboard() {
         dispatch(fetchAnnouncements()),
       ]);
     } catch (error) {
-      console.error("Failed to load dashboard data:", error);
       message.error("Failed to load dashboard data");
     }
   };
-  // const loadData = async () => {
+
   //   try {
   //     await Promise.all([
   //       dispatch(fetchAllEmployees()),
@@ -656,7 +597,7 @@ export default function AttendanceDashboard() {
     title: string,
     message: string,
     leaveId?: number,
-    announcementId?: string // 👈 ADD THIS PARAMETER
+    announcementId?: string
   ) => {
     const employeeNotifications: any[] = JSON.parse(
       localStorage.getItem(`notifications_${employeeName}`) || "[]"
@@ -670,7 +611,7 @@ export default function AttendanceDashboard() {
       date: new Date().toISOString(),
       read: false,
       leaveId,
-      announcementId, // 👈 ADD THIS
+      announcementId,
     };
 
     employeeNotifications.unshift(newNotification);
@@ -689,7 +630,7 @@ export default function AttendanceDashboard() {
       message.error(error || "Failed to delete leave request");
     }
   };
-  // const handleDeleteLeaveRequest = (leaveId: number) => {
+
   //   const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
   //   const updated = leaves.filter((l: LeaveRequest) => l.id !== leaveId);
   //   localStorage.setItem("leaveRequests", JSON.stringify(updated));
@@ -719,7 +660,7 @@ export default function AttendanceDashboard() {
       message.error(error || "Failed to check in");
     }
   };
-  // const handleCheckIn = () => {
+
   //   const loggedUser = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
   //   if (!loggedUser.name) {
   //     message.error("Please login first!");
@@ -794,7 +735,7 @@ export default function AttendanceDashboard() {
       message.error(error || "Failed to check out");
     }
   };
-  // const handleCheckOut = () => {
+
   //   const loggedUser = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
   //   if (!loggedUser.name) {
   //     message.error("Please login first!");
@@ -929,8 +870,6 @@ export default function AttendanceDashboard() {
     };
   };
 
-  // Get employee current balance
-  // Replace the getEmployeeBalance function with:
   const getEmployeeBalance = (employeeName: string) => {
     const balance = leaveBalances[employeeName];
     return (
@@ -942,7 +881,6 @@ export default function AttendanceDashboard() {
     );
   };
 
-  // Set custom leave balance for employee
   // const handleSetLeaveBalance = (values: any) => {
   //   const leaveBalances = JSON.parse(
   //     localStorage.getItem("employeeLeaveBalances") || "{}"
@@ -991,7 +929,6 @@ export default function AttendanceDashboard() {
         })
       ).unwrap();
 
-      // ✅ Fetch the updated balance to show in UI
       await dispatch(fetchLeaveBalance(values.employeeName));
 
       message.success(
@@ -1128,7 +1065,6 @@ export default function AttendanceDashboard() {
     }
   };
 
-  // const handleLeaveSubmit = (values: any) => {
   //   const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
 
   //   if (leaveMode === "company") {
@@ -1288,7 +1224,7 @@ export default function AttendanceDashboard() {
           updateLeaveStatus({
             id: leaveId,
             status: "Rejected",
-            adminNotes: "Rejected by admin", // Default reason
+            adminNotes: "Rejected by admin",
           })
         ).unwrap();
 
@@ -1301,7 +1237,7 @@ export default function AttendanceDashboard() {
       message.error(error || "Failed to update leave status");
     }
   };
-  // const handleApproveReject = (leaveId: number, status: string) => {
+
   //   const leaves = JSON.parse(localStorage.getItem("leaveRequests") || "[]");
   //   const targetLeave = leaves.find((l: LeaveRequest) => l.id === leaveId);
 
@@ -1436,14 +1372,12 @@ export default function AttendanceDashboard() {
         activityId.startsWith("att-checkout")
       ) {
         // Extract attendance record ID from activity ID
-        // Format: "att-checkin-{attendanceId}" or "att-checkout-{attendanceId}"
+
         const attendanceId = activityId.split("-")[2];
 
         await dispatch(deleteAttendanceRecord(attendanceId)).unwrap();
         message.success("Attendance activity deleted successfully!");
       } else if (activityId.startsWith("leave-")) {
-        // Extract leave ID from activity ID
-        // Format: "leave-{leaveId}"
         const leaveId = activityId.split("-")[1];
 
         await dispatch(reduxDeleteLeave(leaveId)).unwrap();
@@ -1711,32 +1645,35 @@ export default function AttendanceDashboard() {
       title: "Actions",
       key: "actions",
       render: (_: any, record: LeaveRequest) => {
-        // ✅ Use LeaveRequest type
-        console.log("Leave record:", record); // ✅ Debug log
-        console.log("📋 Leave ID:", record._id);
         return (
           <Space>
             {record.status === "Pending" && (
               <>
                 <Button
                   size="small"
-                  type="primary"
-                  icon={<CheckOutlined />}
+                  style={{ backgroundColor: "lightgreen", color: "whit" }}
                   onClick={() => {
-                    console.log("Approving leave ID:", record._id); // ✅ Debug
-                    handleApproveReject(record._id, "Approved"); // ✅ Use _id
+                    handleApproveReject(record._id, "Approved");
                   }}
+                  loading={buttonLoading.leaveApproval[record._id]}
+                  disabled={
+                    buttonLoading.leaveApproval[record._id] ||
+                    buttonLoading.leaveDeletion[record._id]
+                  }
                 >
                   Approve
                 </Button>
                 <Button
                   size="small"
                   danger
-                  icon={<CloseOutlined />}
                   onClick={() => {
-                    console.log("Rejecting leave ID:", record._id); // ✅ Debug
-                    handleApproveReject(record._id, "Rejected"); // ✅ Use _id
+                    handleApproveReject(record._id, "Rejected");
                   }}
+                  loading={buttonLoading.leaveApproval[record._id]}
+                  disabled={
+                    buttonLoading.leaveApproval[record._id] ||
+                    buttonLoading.leaveDeletion[record._id]
+                  }
                 >
                   Reject
                 </Button>
@@ -1745,9 +1682,14 @@ export default function AttendanceDashboard() {
             <Button
               size="small"
               danger
-              icon={<CloseOutlined />}
+              // icon={<CloseOutlined />}
               onClick={() => handleDeleteLeaveRequest(record._id)} // ✅ Use _id
               style={{ marginLeft: record.status === "Pending" ? "8px" : "0" }}
+              loading={buttonLoading.leaveDeletion[record._id]}
+              disabled={
+                buttonLoading.leaveApproval[record._id] ||
+                buttonLoading.leaveDeletion[record._id]
+              }
             >
               Delete
             </Button>
@@ -1757,7 +1699,6 @@ export default function AttendanceDashboard() {
     },
   ];
 
-  // const leaveColumns = [
   //   {
   //     title: "Employee",
   //     dataIndex: "employeeName",
@@ -2742,7 +2683,7 @@ export default function AttendanceDashboard() {
                           fontWeight: 500,
                         }}
                       >
-                        Set Balance
+                        Set Leaves
                       </Button>
                     </Space>
                   </Card>
@@ -3068,8 +3009,8 @@ export default function AttendanceDashboard() {
         open={exportModal}
         onCancel={() => {
           setExportModal(false);
-          setSelectedEmployees([]); // Reset selection when closing
-          setSearchText(""); // Reset search
+          setSelectedEmployees([]);
+          setSearchText("");
         }}
         footer={null}
         width={800}
@@ -3162,12 +3103,74 @@ export default function AttendanceDashboard() {
                 key: "weeklyHours",
                 render: (hours: number) => `${hours || 0} hrs`,
               },
+              {
+                title: "Actions",
+                key: "actions",
+                render: (_: any, record: Employee) => (
+                  <Button
+                    danger
+                    size="small"
+                    icon={<CloseOutlined />}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+
+                      Modal.confirm({
+                        title: "Delete Employee",
+                        content: (
+                          <div>
+                            <p>
+                              Are you sure you want to delete{" "}
+                              <strong>{record.name}</strong>?
+                            </p>
+                            <p
+                              style={{
+                                color: "#ef4444",
+                                fontSize: "13px",
+                                marginTop: "8px",
+                              }}
+                            >
+                              ⚠️ This will permanently remove all their data
+                              including attendance records and leave requests.
+                            </p>
+                          </div>
+                        ),
+                        okText: "Delete",
+                        okType: "danger",
+                        cancelText: "Cancel",
+                        onOk: async () => {
+                          try {
+                            console.log(
+                              "Deleting employee with ID:",
+                              record._id
+                            );
+
+                            // ✅ Pass the employee ID to delete
+                            await dispatch(deleteEmployee(record._id)).unwrap();
+
+                            message.success("Employee deleted successfully!");
+
+                            // ✅ Refresh the employee list after deletion
+                            await dispatch(fetchAllEmployees());
+                          } catch (error: any) {
+                            console.error("Delete error:", error);
+                            message.error(error || "Failed to delete employee");
+                          }
+                        },
+                      });
+                    }}
+                  >
+                    Delete
+                  </Button>
+                ),
+              },
             ]}
             dataSource={employees}
-            rowKey="email"
+            rowKey="email" // ✅ Keep this as "email" for selection
             rowSelection={{
               selectedRowKeys: selectedEmployees,
               onChange: (selectedRowKeys: React.Key[]) => {
+                // ✅ This still works with emails for selection
                 setSelectedEmployees(selectedRowKeys as string[]);
               },
               type: "checkbox",
@@ -3186,7 +3189,6 @@ export default function AttendanceDashboard() {
             type="primary"
             icon={<DownloadOutlined />}
             onClick={() => {
-              // Filter employees based on selection
               const filteredEmployees =
                 selectedEmployees.length > 0
                   ? employees.filter((emp) =>
@@ -3238,7 +3240,6 @@ export default function AttendanceDashboard() {
                 return;
               }
 
-              // Filter employees based on selection
               const filteredEmployees =
                 selectedEmployees.length > 0
                   ? employees.filter((emp) =>
@@ -3254,7 +3255,6 @@ export default function AttendanceDashboard() {
               const { jsPDF } = window.jspdf;
               const doc = new jsPDF();
 
-              // Title
               doc.setFontSize(18);
               doc.setFont("helvetica", "bold");
               doc.text("EMPLOYEE DATA REPORT", 105, 20, { align: "center" });
@@ -3281,14 +3281,12 @@ export default function AttendanceDashboard() {
               const maxEmployeesPerPage = 5;
 
               filteredEmployees.forEach((e, index) => {
-                // Add new page if 5 employees already on current page
                 if (employeesOnPage >= maxEmployeesPerPage) {
                   doc.addPage();
                   yPos = 20;
                   employeesOnPage = 0;
                 }
 
-                // Check if we need a new page due to space
                 if (yPos > 250 && employeesOnPage > 0) {
                   doc.addPage();
                   yPos = 20;
@@ -3494,40 +3492,6 @@ export default function AttendanceDashboard() {
               </div>
             </Card>
           </Col>
-
-          {/* <Col xs={12} sm={6}>
-            <Card
-              size="small"
-              style={{
-                borderRadius: "8px",
-                border: "1px solid #ef4444",
-                background: "#fef2f2",
-              }}
-            >
-              <div style={{ textAlign: "center" }}>
-                <Text
-                  style={{
-                    fontSize: "11px",
-                    color: "#991b1b",
-                    fontWeight: 500,
-                    display: "block",
-                    marginBottom: "4px",
-                  }}
-                >
-                  Closed/Unassigned
-                </Text>
-                <Title
-                  level={3}
-                  style={{ margin: 0, color: "#ef4444", fontSize: "24px" }}
-                >
-                  {getShiftStatistics().closed}
-                </Title>
-                <Text style={{ fontSize: "10px", color: "#6b7280" }}>
-                  employees
-                </Text>
-              </div>
-            </Card>
-          </Col> */}
         </Row>
 
         <Divider style={{ margin: "16px 0" }} />
@@ -3539,7 +3503,7 @@ export default function AttendanceDashboard() {
             value={shiftSearchText}
             onChange={(e) => {
               setShiftSearchText(e.target.value);
-              setShiftCurrentPage(1); // Reset to first page on search
+              setShiftCurrentPage(1);
             }}
             allowClear
             prefix={<UserOutlined style={{ color: "#bfbfbf" }} />}
@@ -3615,44 +3579,6 @@ export default function AttendanceDashboard() {
                 );
               },
             },
-            // {
-            //   title: "Duration",
-            //   key: "duration",
-            //   width: 200,
-            //   render: (_: any, record: Employee) => {
-            //     const shiftInfo = getEmployeeShiftInfo(record);
-            //     if (shiftInfo.startDate === "N/A") {
-            //       return <Text type="secondary">Default Schedule</Text>;
-            //     }
-            //     return (
-            //       <div>
-            //         <Text style={{ fontSize: "12px", display: "block" }}>
-            //           From: {new Date(shiftInfo.startDate).toLocaleDateString()}
-            //         </Text>
-            //         <Text style={{ fontSize: "12px", display: "block" }}>
-            //           To: {new Date(shiftInfo.endDate).toLocaleDateString()}
-            //         </Text>
-            //       </div>
-            //     );
-            //   },
-            // },
-            // {
-            //   title: "Assigned By",
-            //   key: "assignedBy",
-            //   width: 120,
-            //   render: (_: any, record: Employee) => {
-            //     const shiftInfo = getEmployeeShiftInfo(record);
-            //     return (
-            //       <Tag
-            //         color={
-            //           shiftInfo.assignedBy === "Default" ? "default" : "blue"
-            //         }
-            //       >
-            //         {shiftInfo.assignedBy}
-            //       </Tag>
-            //     );
-            //   },
-            // },
           ]}
           dataSource={getPaginatedShiftEmployees()}
           rowKey="email"

@@ -1,4 +1,3 @@
-// src/pages/reports/index.tsx
 import Head from "next/head";
 import MainLayout from "../../components/Layout/MainLayout";
 import ExportModal from "../../components/Reports/ExportModal";

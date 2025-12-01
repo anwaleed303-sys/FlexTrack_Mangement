@@ -66,19 +66,6 @@ interface EmployeeData {
   registeredAt?: string;
 }
 
-interface ShiftAssignment {
-  _id?: string;
-  employeeEmail: string;
-  employeeName: string;
-  shift: string;
-  customShift?: string;
-  startDate: string;
-  endDate: string;
-  assignedBy: string;
-  assignedDate: string;
-  closedDays?: string[];
-}
-
 interface ShiftRequest {
   _id: string;
   employeeName: string;
@@ -99,7 +86,7 @@ interface ShiftRequest {
   adminComments?: string;
   adminNotes?: string;
 }
-// const sendNotificationToEmployee = (
+
 //   employeeName: string,
 //   type: "shift_assignment" | "shift_approval" | "shift_rejection",
 //   title: string,
@@ -183,7 +170,6 @@ const ShiftManagement: React.FC = () => {
     "Sunday",
   ];
 
-  // Initialize user and fetch data
   // useEffect(() => {
   //   const loggedInUser = localStorage.getItem("loggedInUser");
   //   if (loggedInUser) {
@@ -296,8 +282,7 @@ const ShiftManagement: React.FC = () => {
         };
         setCurrentEmployee(employee);
 
-        // ✅ CRITICAL FIX: Fetch ALL assignments, not just filtered by email
-        dispatch(fetchShiftAssignments({})); // Changed from { email: userData.email }
+        dispatch(fetchShiftAssignments({}));
 
         dispatch(fetchShiftRequests("all")).then((result: any) => {
           if (result.payload?.requests) {
@@ -311,7 +296,6 @@ const ShiftManagement: React.FC = () => {
     }
   }, [dispatch]);
 
-  // ✅ IMPROVED: getEmployeeWeekSchedule function
   // const getEmployeeWeekSchedule = () => {
   //   if (!currentEmployee) return {};
 
@@ -351,26 +335,24 @@ const ShiftManagement: React.FC = () => {
   // ✅ REPLACE WITH THIS
   useEffect(() => {
     if (isAdmin) {
-      dispatch(fetchEmployeesAsync()); // ✅ Fetch real employee data
+      dispatch(fetchEmployeesAsync());
     }
   }, [isAdmin, dispatch]);
 
-  // ✅ ADD THIS NEW EFFECT
   const { employees: reduxEmployees } = useSelector(
     (state: RootState) => state.shifts
   );
 
   useEffect(() => {
     if (isAdmin && reduxEmployees.length > 0) {
-      setEmployees(reduxEmployees); // ✅ Use employees from Redux
+      setEmployees(reduxEmployees);
       setFilteredEmployees(reduxEmployees);
     }
   }, [isAdmin, reduxEmployees]);
   useEffect(() => {
     if (!isAdmin && currentEmployee) {
       const fetchEmployeeData = () => {
-        // ✅ CRITICAL FIX: Fetch ALL assignments
-        dispatch(fetchShiftAssignments({})); // Changed from { email: currentEmployee.email }
+        dispatch(fetchShiftAssignments({}));
 
         dispatch(fetchShiftRequests("all")).then((result: any) => {
           if (result.payload?.requests) {
@@ -446,7 +428,6 @@ const ShiftManagement: React.FC = () => {
   ) => {
     const checkDate = dayjs(date);
 
-    // Find all assignments that overlap with this date
     const currentAssignment = assignments
       .filter((assignment) => {
         const startDate = dayjs(assignment.startDate);
@@ -505,7 +486,6 @@ const ShiftManagement: React.FC = () => {
     const schedule: { [day: string]: string } = {};
     const startOfWeek = dateRange?.[0] || dayjs().startOf("week");
 
-    // ✅ Get logged in user email directly
     const loggedInUser = JSON.parse(
       localStorage.getItem("loggedInUser") || "{}"
     );
@@ -533,7 +513,6 @@ const ShiftManagement: React.FC = () => {
             new Date(a.assignedDate).getTime()
         )[0];
 
-      // ✅ FIXED: Only mark as closed if there's an assignment AND day is in closedDays
       if (activeAssignment) {
         if (activeAssignment.closedDays?.includes(day)) {
           schedule[day] = "closed";
@@ -712,7 +691,7 @@ const ShiftManagement: React.FC = () => {
           },
         })
       ).unwrap();
-      // ✅ ADD NOTIFICATION FOR APPROVAL/REJECTION
+
       // const adminName =
       //   JSON.parse(localStorage.getItem("loggedInUser") || "{}").name ||
       //   "Admin";
@@ -741,7 +720,7 @@ const ShiftManagement: React.FC = () => {
 
       // Refresh requests
       dispatch(fetchShiftRequests("all"));
-      dispatch(fetchShiftAssignments({})); // ✅ Add this to refresh assignments
+      dispatch(fetchShiftAssignments({}));
       dispatch(fetchEmployeesAsync());
 
       setReviewModalVisible(false);

@@ -120,14 +120,13 @@ export default function ExportModal() {
       localStorage.getItem("recentReports") || "[]"
     );
     setRecentReports(savedReports);
-  }, []); // Run only once on mount
-  // ✅ ADD THIS NEW EFFECT - Fetch employees and departments from Redux
+  }, []);
+
   const { employees: reduxEmployees, departments: reduxDepartments } =
     useSelector((state: RootState) => state.shifts);
 
   useEffect(() => {
     if (loggedInUser.userRole === "admin") {
-      // Fetch real data from backend
       dispatch(fetchEmployeesAsync());
       dispatch(fetchDepartments());
     }
@@ -135,10 +134,10 @@ export default function ExportModal() {
   useEffect(() => {
     if (loggedInUser.userRole === "admin") {
       if (reduxEmployees.length > 0) {
-        setEmployees(reduxEmployees); // ✅ Use employees from Redux
+        setEmployees(reduxEmployees);
       }
       if (reduxDepartments.length > 0) {
-        setDepartments(reduxDepartments); // ✅ Use departments from Redux
+        setDepartments(reduxDepartments);
       }
     }
   }, [reduxEmployees, reduxDepartments, loggedInUser.userRole]);
@@ -147,10 +146,6 @@ export default function ExportModal() {
     const user = JSON.parse(localStorage.getItem("loggedInUser") || "{}");
     setLoggedInUser(user);
   };
-  // Don't load from localStorage anymore - will use Redux
-  // const empData: Employee[] = JSON.parse(
-  //   localStorage.getItem("employees") || "[]"
-  // );
 
   const saveRecentReport = (name: string, type: string) => {
     const newReport: ReportFile = {
@@ -173,7 +168,7 @@ export default function ExportModal() {
           ? loggedInUser.email
           : selectedEmployee !== "all"
             ? selectedEmployee
-            : undefined, // ✅ Send undefined, NOT "all"
+            : undefined,
       department: selectedDepartment || undefined,
       startDate: dateRange?.[0]
         ? dayjs(dateRange[0]).format("YYYY-MM-DD")
@@ -372,11 +367,7 @@ export default function ExportModal() {
       render: (time: string) =>
         time ? dayjs(time).format("hh:mm A") : "In Progress",
     },
-    // {
-    //   title: "Working Time",
-    //   dataIndex: "workingTime",
-    //   key: "workingTime",
-    // },
+
     {
       title: "Status",
       dataIndex: "status",

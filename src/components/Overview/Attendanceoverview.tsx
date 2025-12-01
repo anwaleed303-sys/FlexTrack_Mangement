@@ -10,11 +10,10 @@ import {
   Col,
   Spin,
   App,
-  message,
 } from "antd";
 import { CalendarOutlined } from "@ant-design/icons";
 import type { Dayjs } from "dayjs";
-import dayjs from "dayjs";
+
 import axios from "axios";
 
 const { RangePicker } = DatePicker;
@@ -28,29 +27,15 @@ interface EmployeeData {
   shift?: string;
 }
 
-interface AttendanceRecord {
-  _id: string;
-  key: string;
-  employeeId: EmployeeData;
-  employeeName: string;
-  department: string;
-  chiefShift: string;
-  workDuration: string;
-  status: "Present" | "Absent" | "Late" | "Half-Day";
-  date: string;
-  checkIn: string | null;
-  checkOut: string | null;
-}
-
 interface DashboardAttendanceProps {
   dateRange: [Dayjs | null, Dayjs | null] | null;
   setDateRange: (dates: [Dayjs | null, Dayjs | null] | null) => void;
 }
 
-// const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://flextrack-be-production.up.railway.app/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+// const API_URL =
+//   process.env.NEXT_PUBLIC_API_URL ||
+//   "https://flextrack-be-production.up.railway.app/api";
 
 const DashboardAttendance: React.FC<DashboardAttendanceProps> = ({
   dateRange,

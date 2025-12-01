@@ -156,7 +156,7 @@ export default function Dashboard() {
         if (currentUser.userRole === "employee") {
           await loadCheckInStatus();
           await loadMyLeaveRequests();
-          await loadUpcomingLeaves(); // ✅ ADD THIS LINE
+          await loadUpcomingLeaves();
         }
       }
     } catch (error) {
@@ -172,7 +172,7 @@ export default function Dashboard() {
       }
     } catch (error: any) {
       console.error("Load weekly attendance error:", error);
-      setWeeklyAttendance([]); // ADD THIS
+      setWeeklyAttendance([]);
     }
   };
 
@@ -204,15 +204,14 @@ export default function Dashboard() {
       }
     } catch (error: any) {
       console.error("Load my attendance error:", error);
-      setMyAttendance([]); // ADD THIS
+      setMyAttendance([]);
     }
   };
-  // In loadMyLeaveRequests function (around line 220-240)
+
   const loadMyLeaveRequests = async () => {
     try {
       const response = await axiosInstance.get("/leaves/list");
       if (response.data.success) {
-        // ✅ SAFE: Use optional chaining and default empty array
         const leaves = response.data.data?.leaves || [];
         setRecentLeaves(leaves);
 
@@ -223,7 +222,6 @@ export default function Dashboard() {
           Rejected: 0,
         };
 
-        // ✅ SAFE: Now leaves is guaranteed to be an array
         leaves.forEach((leave: LeaveRequest) => {
           if (leave.status in statusCounts) {
             statusCounts[leave.status as keyof typeof statusCounts]++;
@@ -235,7 +233,7 @@ export default function Dashboard() {
           .map(([status, count]) => ({
             name: status,
             value: count,
-            // ✅ SAFE: Check if leaves has items before dividing
+
             percentage:
               leaves.length > 0 ? Math.round((count / leaves.length) * 100) : 0,
           }));
@@ -244,7 +242,7 @@ export default function Dashboard() {
       }
     } catch (error: any) {
       console.error("Load leave requests error:", error);
-      // ✅ IMPORTANT: Set empty arrays on error
+
       setRecentLeaves([]);
       setLeaveChartData([]);
     }
@@ -275,27 +273,6 @@ export default function Dashboard() {
       setUpcomingShifts([]);
     }
   };
-  // const loadUpcomingLeaves = async () => {
-  //   try {
-  //     const response = await axiosInstance.get("/leaves/upcoming");
-  //     if (response.data.success) {
-  //       // ✅ SAFE: Use optional chaining and default empty array
-  //       const leaves = response.data.data?.leaves || [];
-  //       const shifts = leaves.map((leave: any) => ({
-  //         id: leave._id,
-  //         type: leave.leaveType,
-  //         time: `${new Date(leave.startDate).toLocaleDateString()} - ${new Date(leave.endDate).toLocaleDateString()}`,
-  //         approved: true,
-  //         employeeName: leave.employeeName,
-  //       }));
-  //       setUpcomingShifts(shifts);
-  //     }
-  //   } catch (error: any) {
-  //     console.error("Load upcoming leaves error:", error);
-  //     setUpcomingShifts([]);
-  //   }
-  // };
-
   const loadAnnouncements = async () => {
     try {
       const response = await axiosInstance.get("/announcements/list");
@@ -620,71 +597,6 @@ export default function Dashboard() {
           </Card>
         </Col>
 
-        {/* {(userData.userRole === "admin" ||
-          userData.userRole === "employee") && (
-          <Col xs={24} lg={12}>
-            <Card title="Upcoming Shifts" style={{ borderRadius: "12px" }}>
-              {upcomingShifts.length > 0 ? (
-                <div style={{ maxHeight: "240px", overflowY: "auto" }}>
-                  <Space
-                    direction="vertical"
-                    size="middle"
-                    style={{ width: "100%" }}
-                  >
-                    {upcomingShifts.map((shift) => (
-                      <div
-                        key={shift.id}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          padding: "12px",
-                          background: "#fafafa",
-                          borderRadius: "8px",
-                        }}
-                      >
-                        <div style={{ flex: 1 }}>
-                          <Text strong>
-                            {shift.employeeName} - {shift.type}
-                          </Text>
-                          <Text
-                            type="secondary"
-                            style={{ display: "block", fontSize: "12px" }}
-                          >
-                            {shift.time} -{" "}
-                            {shift.approved ? "Approved" : "Pending"}
-                          </Text>
-                        </div>
-                        <Popconfirm
-                          title="Delete Leave"
-                          description="Are you sure you want to delete this leave permanently?"
-                          onConfirm={() => handleDeleteLeave(shift.id)}
-                          okText="Yes"
-                          cancelText="No"
-                          okButtonProps={{ danger: true }}
-                        >
-                          <Button
-                            type="text"
-                            danger
-                            icon={<DeleteOutlined />}
-                            size="small"
-                            loading={loading}
-                          >
-                            Delete
-                          </Button>
-                        </Popconfirm>
-                      </div>
-                    ))}
-                  </Space>
-                </div>
-              ) : (
-                <Text type="secondary">
-                  No approved leave requests at this time
-                </Text>
-              )}
-            </Card>
-          </Col>
-        )} */}
         {userData.userRole === "employee" && (
           <Col xs={24} lg={12}>
             <Card title="Upcoming Shifts" style={{ borderRadius: "12px" }}>
@@ -749,50 +661,6 @@ export default function Dashboard() {
             </Card>
           </Col>
         )}
-        {/* {userData.userRole === "employee" && (
-          <Col xs={24} lg={12}>
-            <Card title="Upcoming Shifts" style={{ borderRadius: "12px" }}>
-              {upcomingShifts.length > 0 ? (
-                <div style={{ maxHeight: "240px", overflowY: "auto" }}>
-                  <Space
-                    direction="vertical"
-                    size="middle"
-                    style={{ width: "100%" }}
-                  >
-                    {upcomingShifts.map((shift) => (
-                      <div
-                        key={shift.id}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          padding: "12px",
-                          background: "#fafafa",
-                          borderRadius: "8px",
-                        }}
-                      >
-                        <div style={{ flex: 1 }}>
-                          <Text strong>
-                            {shift.employeeName} - {shift.type}
-                          </Text>
-                          <Text
-                            type="secondary"
-                            style={{ display: "block", fontSize: "12px" }}
-                          >
-                            {shift.time} -{" "}
-                            {shift.approved ? "Approved" : "Pending"}
-                          </Text>
-                        </div>
-                      </div>
-                    ))}
-                  </Space>
-                </div>
-              ) : (
-                <Text type="secondary">No upcoming shifts</Text>
-              )}
-            </Card>
-          </Col>
-        )} */}
 
         {userData.userRole === "employee" && (
           <>
@@ -1021,141 +889,6 @@ export default function Dashboard() {
             </Col>
           </>
         )}
-
-        {/* {userData.userRole === "employee" && (
-          <Col xs={24} lg={12}>
-            <Card title="Upcoming Shifts" style={{ borderRadius: "12px" }}>
-              {upcomingShifts.length > 0 ? (
-                <div style={{ maxHeight: "240px", overflowY: "auto" }}>
-                  <Space
-                    direction="vertical"
-                    size="middle"
-                    style={{ width: "100%" }}
-                  >
-                    {upcomingShifts.map((shift) => (
-                      <div
-                        key={shift.id}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          padding: "12px",
-                          background: "#fafafa",
-                          borderRadius: "8px",
-                        }}
-                      >
-                        <div style={{ flex: 1 }}>
-                          <Text strong>
-                            {shift.employeeName} - {shift.type}
-                          </Text>
-                          <Text
-                            type="secondary"
-                            style={{ display: "block", fontSize: "12px" }}
-                          >
-                            {shift.time} -{" "}
-                            {shift.approved ? "Approved" : "Pending"}
-                          </Text>
-                        </div>
-                      </div>
-                    ))}
-                  </Space>
-                </div>
-              ) : (
-                <Text type="secondary">No upcoming shifts</Text>
-              )}
-            </Card>
-          </Col>
-        )} */}
-
-        {/* {userData.userRole === "employee" && (
-          <Col xs={24}>
-            <Card
-              title="Important Announcements"
-              style={{ borderRadius: "12px" }}
-            >
-              {announcements.length === 0 ? (
-                <>
-                  <Text strong>No announcements at this time</Text>
-                  <Text
-                    type="secondary"
-                    style={{
-                      display: "block",
-                      fontSize: "12px",
-                      marginTop: "4px",
-                    }}
-                  >
-                    Check back later for updates
-                  </Text>
-                </>
-              ) : (
-                announcements.slice(0, 5).map((announcement) => {
-                  const priorityColors: any = {
-                    high: "#ff4d4f",
-                    medium: "#faad14",
-                    low: "#52c41a",
-                  };
-
-                  return (
-                    <div
-                      key={announcement._id}
-                      style={{
-                        marginBottom: "12px",
-                        paddingBottom: "12px",
-                        borderBottom: "1px solid #f0f0f0",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          marginBottom: "4px",
-                        }}
-                      >
-                        <Text strong style={{ color: "#0066FF" }}>
-                          {announcement.title}
-                        </Text>
-                        <Tag color={priorityColors[announcement.priority]}>
-                          {announcement.priority.toUpperCase()}
-                        </Tag>
-                      </div>
-                      <Text
-                        type="secondary"
-                        style={{
-                          display: "block",
-                          fontSize: "12px",
-                          marginTop: "4px",
-                        }}
-                      >
-                        {announcement.message}
-                      </Text>
-                      <Text
-                        type="secondary"
-                        style={{
-                          display: "block",
-                          fontSize: "11px",
-                          marginTop: "4px",
-                          color: "#8c8c8c",
-                        }}
-                      >
-                        {new Date(announcement.createdAt).toLocaleDateString(
-                          "en-US",
-                          {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }
-                        )}
-                      </Text>
-                    </div>
-                  );
-                })
-              )}
-            </Card>
-          </Col>
-        )} */}
       </Row>
 
       <Modal

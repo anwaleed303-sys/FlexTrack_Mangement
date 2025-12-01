@@ -1,7 +1,6 @@
-// src/pages/Dashboard/index.tsx
 import Head from "next/head";
 import MainLayout from "../../components/Layout/MainLayout";
-import AttandenceTrend from "../../components/Dashboard/AttandenceTrend";
+import AttandenceTrend from "../../components/Dashboard/dashboard";
 
 export default function Dashboard() {
   return (

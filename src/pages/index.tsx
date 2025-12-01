@@ -8,7 +8,7 @@ export default function Home() {
   useEffect(() => {
     const timer = setTimeout(() => {
       router.push("/login");
-    }, 1000); // Redirect after 2 seconds
+    }, 1000);
 
     return () => clearTimeout(timer);
   }, [router]);
@@ -46,17 +46,7 @@ export default function Home() {
         >
           FT
         </div>
-        {/* <div
-          style={{
-            marginTop: 24,
-            fontSize: 28,
-            fontWeight: 600,
-            color: "#262626",
-            animation: "fadeIn 0.8s ease-out 0.3s both",
-          }}
-        >
-          Welcome to FlexTrack
-        </div> */}
+
         <style jsx>{`
           @keyframes scaleIn {
             from {
